@@ -140,8 +140,8 @@ const WORLD_W = 800;
 const WORLD_H = 500;
 
 const GRAVITY = 0.5;
-const PLAYER_SPEED = 4;
-const JUMP_FORCE = -9;
+const PLAYER_SPEED = 3;
+const JUMP_FORCE = -9.5;
 
 // ---------- calm palette ----------
 const COLORS = {
@@ -265,10 +265,10 @@ function initNipple() {
     fadeTime: 80,
   });
   joy.on('move', (evt, data) => {
-    if (!data.direction) return;
-    if (data.direction.x === 'left') mobileDir = -1;
-    else if (data.direction.x === 'right') mobileDir = 1;
-    else mobileDir = 0;
+    if (!data.direction) { mobileDir = 0; return; }
+    const force = data.force || 1;
+    const dir = data.direction.x === 'left' ? -1 : data.direction.x === 'right' ? 1 : 0;
+    mobileDir = dir * force;
   });
   joy.on('end', () => { mobileDir = 0; });
 
@@ -291,37 +291,35 @@ initNipple();
 restartBtn.addEventListener('click', resetGame);
 restartBtn.addEventListener('touchstart', (e) => { e.preventDefault(); resetGame(); }, { passive: false });
 
-// ---------- collisions ----------
+// ---------- collisions (separate X/Y) ----------
 function rectCollide(a, b) {
   return a.x < b.x + b.w && a.x + a.w > b.x &&
          a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
-function collidePlatforms(entity) {
+function collideX(entity) {
+  for (const p of platforms) {
+    if (!rectCollide(entity, p)) continue;
+    if (entity.vx > 0) {
+      entity.x = p.x - entity.w;
+    } else if (entity.vx < 0) {
+      entity.x = p.x + p.w;
+    }
+    entity.vx = 0;
+  }
+}
+
+function collideY(entity) {
   entity.onGround = false;
   for (const p of platforms) {
-    if (rectCollide(entity, p)) {
-      const overlapLeft  = (entity.x + entity.w) - p.x;
-      const overlapRight = (p.x + p.w) - entity.x;
-      const overlapTop   = (entity.y + entity.h) - p.y;
-      const overlapBot   = (p.y + p.h) - entity.y;
-
-      const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBot);
-
-      if (minOverlap === overlapTop && entity.vy >= 0) {
-        entity.y = p.y - entity.h;
-        entity.vy = 0;
-        entity.onGround = true;
-      } else if (minOverlap === overlapBot && entity.vy < 0) {
-        entity.y = p.y + p.h;
-        entity.vy = 0;
-      } else if (minOverlap === overlapLeft) {
-        entity.x = p.x + p.w;
-        entity.vx = 0;
-      } else if (minOverlap === overlapRight) {
-        entity.x = p.x - entity.w;
-        entity.vx = 0;
-      }
+    if (!rectCollide(entity, p)) continue;
+    if (entity.vy > 0) {
+      entity.y = p.y - entity.h;
+      entity.vy = 0;
+      entity.onGround = true;
+    } else if (entity.vy < 0) {
+      entity.y = p.y + p.h;
+      entity.vy = 0;
     }
   }
 }
@@ -349,11 +347,12 @@ function update() {
   player.vy += GRAVITY;
   if (player.vy > 12) player.vy = 12;
 
+  // move X then collide X, move Y then collide Y (clean separation)
   player.x += player.vx;
-  collidePlatforms(player);
+  collideX(player);
 
   player.y += player.vy;
-  collidePlatforms(player);
+  collideY(player);
 
   // bounds
   if (player.x < 0) { player.x = 0; player.vx = 0; }
