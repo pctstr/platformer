@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Pixel Platformer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #1a2a1a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: monospace;
+  }
+  #game-container { line-height: 0; }
+  #game-container canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+</style>
+</head>
+<body>
+<div id="game-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+<script>
+// ============================================================
+//  PIXEL PLATFORMER — Phaser 3, 320×240, procedural pixel art
+// ============================================================
+const TILE = 16;
+const GW = 320, GH = 240;
+
+const PAL = {
+  sky1: 0xbee8be, sky2: 0x8ac88a,
+  hill: 0x6aaa6a, hillD: 0x4a8a4a,
+  plat: 0x4a7a4a, platT: 0x6aaa6a, platS: 0x3a5a3a,
+  gnd: 0x3a5a3a, gndT: 0x5a8a5a,
+  ply: 0x2a5a2a, plyH: 0x3a7a3a, plyE: 0xc8e8c8, plyP: 0x1a2a1a,
+  coin: 0xc4d88c, coinG: 0xdce8b0, coinD: 0x94a86c,
+  goal: 0x6aaa6a, goalI: 0x8ac88a, flag: 0xc8e8c8,
+};
+
+// ---- draw pixel art helper ----
+function px(ctx, x, y, color) {
+  if (color !== undefined) {
+    ctx.fillStyle = '#' + color.toString(16).padStart(6,'0');
+    ctx.fillRect(x, y, 1, 1);
+  }
+}
+
+function genTextures(scene) {
+  // player 12x24
+  const pc = document.createElement('canvas'); pc.width=12; pc.height=24;
+  const pctx = pc.getContext('2d');
+  const pf = [
+    '...HHHH...', '..HHHHHH..', '.HHHHHHHH.', '.HPPPPPPH.',
+    '.HPPLPPH..', '..HHHH....', '..HHHH....', '..HHHH....',
+    '.HHHHHH...', '.H.HH.H...', '.H.HH.H...', '..H..H....',
+    '..H..H....', '..HHHH....', '.HHHHHH...', '..H..H....',
+    '..H..H....', '..H..H....', '..H..H....', '..H..H....',
+    '..H..H....', '.HH..HH...', '.HH..HH...', '..H..H....',
+  ];
+  for (let y=0; y<24; y++) {
+    const r = pf[y]; if (!r) continue;
+    for (let x=0; x<12; x++) {
+      const c = r[x];
+      let col;
+      if (c==='H') col=PAL.plyH; else if (c==='P') col=PAL.ply;
+      else if (c==='E') col=PAL.plyE; else if (c==='p') col=PAL.plyP;
+      if (col!==undefined) px(pctx, x, y, col);
+    }
+  }
+  // eyes
+  px(pctx, 4, 8, PAL.plyE); px(pctx, 7, 8, PAL.plyE);
+  px(pctx, 5, 8, PAL.plyP); px(pctx, 8, 8, PAL.plyP);
+  scene.textures.addCanvas('player', pc);
+
+  // platform tile 16x16
+  const plc = document.createElement('canvas'); plc.width=16; plc.height=16;
+  const pt = plc.getContext('2d');
+  pt.fillStyle='#'+PAL.plat.toString(16).padStart(6,'0'); pt.fillRect(0,0,16,16);
+  pt.fillStyle='#'+PAL.platT.toString(16).padStart(6,'0'); pt.fillRect(0,0,16,4);
+  pt.fillStyle='#'+PAL.platS.toString(16).padStart(6,'0'); pt.fillRect(0,0,2,16); pt.fillRect(14,0,2,16);
+  px(pt,5,8,PAL.platS); px(pt,11,10,PAL.platS); px(pt,8,13,PAL.platS);
+  scene.textures.addCanvas('platform', plc);
+
+  // ground tile 16x16
+  const gc = document.createElement('canvas'); gc.width=16; gc.height=16;
+  const gt = gc.getContext('2d');
+  gt.fillStyle='#'+PAL.gnd.toString(16).padStart(6,'0'); gt.fillRect(0,0,16,16);
+  gt.fillStyle='#'+PAL.gndT.toString(16).padStart(6,'0'); gt.fillRect(0,0,16,4);
+  px(gt,2,0,PAL.gndT); px(gt,6,0,PAL.gndT); px(gt,10,0,PAL.gndT); px(gt,14,1,PAL.gndT);
+  scene.textures.addCanvas('ground', gc);
+
+  // coin 8x8
+  const cc = document.createElement('canvas'); cc.width=8; cc.height=8;
+  const ct = cc.getContext('2d');
+  ct.fillStyle='#'+PAL.coin.toString(16).padStart(6,'0');
+  ct.fillRect(1,0,6,1); ct.fillRect(0,1,8,6); ct.fillRect(1,7,6,1);
+  ct.fillStyle='#'+PAL.coinG.toString(16).padStart(6,'0'); ct.fillRect(2,2,4,4);
+  ct.fillStyle='#'+PAL.coinD.toString(16).padStart(6,'0'); ct.fillRect(4,3,2,3);
+  scene.textures.addCanvas('coin', cc);
+
+  // goal flag 16x24
+  const glc = document.createElement('canvas'); glc.width=16; glc.height=24;
+  const glt = glc.getContext('2d');
+  glt.fillStyle='#'+PAL.goal.toString(16).padStart(6,'0'); glt.fillRect(6,0,4,24);
+  glt.fillStyle='#'+PAL.flag.toString(16).padStart(6,'0'); glt.fillRect(10,2,12,10);
+  glt.fillStyle='#'+PAL.goalI.toString(16).padStart(6,'0'); glt.fillRect(10,2,12,3);
+  scene.textures.addCanvas('goal', glc);
+
+  // background 320x240
+  const bgc = document.createElement('canvas'); bgc.width=320; bgc.height=240;
+  const bt = bgc.getContext('2d');
+  for (let y=0; y<240; y++) {
+    const t = y/240;
+    const r = Math.floor(0xbe + (0x8a-0xbe)*t);
+    const g = Math.floor(0xe8 + (0xc8-0xe8)*t);
+    const b = Math.floor(0xbe + (0x8a-0xbe)*t);
+    bt.fillStyle=`rgb(${r},${g},${b})`; bt.fillRect(0,y,320,1);
+  }
+  function dhill(cx,cy,rw,rh) {
+    bt.fillStyle='#'+PAL.hill.toString(16).padStart(6,'0');
+    for (let y=0; y<rh; y++) {
+      const w = Math.floor(rw * Math.sin(Math.PI*y/rh));
+      for (let x=cx-w; x<cx+w; x++) bt.fillRect(x, cy-rh+y, 1, 1);
+    }
+  }
+  dhill(80,230,100,60); dhill(220,235,140,55); dhill(160,240,120,50);
+  scene.textures.addCanvas('bg', bgc);
+}
+
+// ============================================================
+//  Game Scene
+// ============================================================
+class GameScene extends Phaser.Scene {
+  constructor() { super('Game'); }
+
+  create() {
+    this.cameras.main.setBackgroundColor(PAL.sky1);
+    genTextures(this);
+
+    // background
+    this.add.image(160,120,'bg').setScrollFactor(0).setScale(1);
+
+    // platforms (tileSprite)
+    this.platforms = this.physics.add.staticGroup();
+
+    // ground
+    this.platforms.add(this.add.tileSprite(0, 220, 640, 16, 'ground').setOrigin(0,0));
+
+    const platData = [
+      [32, 180, 128], [136, 136, 96], [208, 164, 112], [280, 108, 160],
+      [256, 192, 80], [0, 196, 80],
+    ];
+    for (const [x,y,w] of platData) {
+      this.platforms.add(this.add.tileSprite(x, y, w, 16, 'platform').setOrigin(0,0));
+    }
+    this.platforms.refresh();
+
+    // player
+    this.player = this.physics.add.sprite(40, 190, 'player');
+    this.player.setSize(10, 22);
+    this.player.setOffset(1, 2);
+    this.player.setBounce(0);
+    this.player.setCollideWorldBounds(true);
+
+    // physics
+    this.physics.add.collider(this.player, this.platforms);
+
+    // coins
+    this.coins = this.physics.add.staticGroup();
+    const coinPos = [[56,170],[100,170],[160,126],[180,126],[236,152],[256,152],[306,98],[312,98]];
+    for (const [x,y] of coinPos) {
+      const c = this.coins.add(this.add.image(x+4, y+4, 'coin').setScale(1.2));
+      c.body.setSize(8,8); c.body.setOffset(0,0);
+    }
+    this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);
+
+    // goal
+    this.goal = this.physics.add.staticSprite(300, 80, 'goal');
+    this.physics.add.overlap(this.player, this.goal, this.win, null, this);
+
+    // controls
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.wasd = this.input.keyboard.addKeys('W,A,S,D,SPACE');
+
+    // HUD
+    this.coinCount = 0;
+    this.coinText = this.add.text(8, 8, '🍀 0', {font:'16px monospace', fill:'#d4e8d4'}).setScrollFactor(0);
+    this.statusText = this.add.text(160, 8, '', {font:'12px monospace', fill:'#d4e8d4'}).setOrigin(0.5,0).setScrollFactor(0);
+    this.gameWon = false;
+  }
+
+  collectCoin(player, coin) {
+    coin.destroy();
+    this.coinCount++;
+    this.coinText.setText('🍀 '+this.coinCount);
+  }
+
+  win() {
+    if (this.gameWon) return;
+    this.gameWon = true;
+    this.statusText.setText('УРОВЕНЬ ПРОЙДЕН!');
+    this.statusText.setStyle({font:'16px monospace', fill:'#8ac88a', fontStyle:'bold'});
+    this.physics.pause();
+  }
+
+  update() {
+    if (this.gameWon) return;
+
+    const p = this.player;
+    const spd = 120;
+    const jump = -220;
+
+    if (this.cursors.left.isDown || this.wasd.A.isDown) {
+      p.setVelocityX(-spd);
+      p.setFlipX(true);
+    } else if (this.cursors.right.isDown || this.wasd.D.isDown) {
+      p.setVelocityX(spd);
+      p.setFlipX(false);
+    } else {
+      p.setVelocityX(0);
+    }
+
+    if ((this.cursors.up.isDown || this.wasd.W.isDown || this.wasd.SPACE.isDown) && p.body.touching.down) {
+      p.setVelocityY(jump);
+    }
+
+    // win text reset
+    this.statusText.setText('');
+  }
+}
+
+// ============================================================
+//  Config
+// ============================================================
+const config = {
+  type: Phaser.AUTO,
+  width: GW,
+  height: GH,
+  parent: 'game-container',
+  pixelArt: true,
+  physics: {
+    default: 'arcade',
+    arcade: { gravity: { y: 500 }, debug: false }
+  },
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+  },
+  scene: GameScene,
+};
+
+new Phaser.Game(config);
+</script>
+</body>
+</html>
