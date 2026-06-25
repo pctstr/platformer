@@ -48,6 +48,8 @@
     font-size: 16px;
     background: #2d3a3a;
     flex-shrink: 0;
+    z-index: 10;
+    position: relative;
   }
   .hud span {
     background: #3e4f4f;
@@ -59,55 +61,43 @@
     user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
-  /* ---- mobile controls ---- */
-  .controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 20px 20px;
-    flex-shrink: 0;
-    background: #2d3a3a;
-    gap: 12px;
-  }
-  .ctrl-group {
-    display: flex;
-    gap: 10px;
-  }
-  .ctrl-btn {
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    border: 2px solid #7a9e9e;
-    background: rgba(122,158,158,0.2);
-    color: #d4e2e2;
-    font-size: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+
+  /* ---- nipple.js zones (fixed) ---- */
+  #joystickZone {
+    position: fixed;
+    left: 20px;
+    bottom: 20px;
+    width: 140px;
+    height: 140px;
+    z-index: 20;
     touch-action: none;
-    -webkit-tap-highlight-color: transparent;
-    cursor: pointer;
-    transition: background 0.1s;
   }
-  .ctrl-btn:active, .ctrl-btn.active {
-    background: rgba(122,158,158,0.5);
+  #jumpZone {
+    position: fixed;
+    right: 20px;
+    bottom: 24px;
+    width: 110px;
+    height: 110px;
+    z-index: 20;
+    touch-action: none;
   }
-  .ctrl-btn.jump {
-    width: 80px;
-    height: 80px;
-    font-size: 16px;
+  .jump-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #d4e2e2;
+    font-size: 15px;
     font-weight: 600;
-    border-color: #8fb5b5;
-    background: rgba(143,181,181,0.2);
-  }
-  .ctrl-btn.jump:active, .ctrl-btn.jump.active {
-    background: rgba(143,181,181,0.5);
+    pointer-events: none;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    letter-spacing: 0.5px;
   }
   .controls-hint {
     display: none;
   }
   @media (min-width: 768px) {
-    .controls { display: none; }
+    #joystickZone, #jumpZone { display: none; }
     .controls-hint {
       display: block;
       color: #8ba3a3;
@@ -130,18 +120,14 @@
   <div class="canvas-wrap">
     <canvas id="gameCanvas"></canvas>
   </div>
-  <div class="controls" id="mobileControls">
-    <div class="ctrl-group">
-      <div class="ctrl-btn" id="btnLeft">&#9664;</div>
-      <div class="ctrl-btn" id="btnRight">&#9654;</div>
-    </div>
-    <div class="ctrl-group">
-      <div class="ctrl-btn jump" id="btnJump">прыжок</div>
-    </div>
-  </div>
   <div class="controls-hint">← → двигаться &nbsp;·&nbsp; Пробел / W прыжок</div>
 </div>
 
+<!-- nipple.js zones (fixed) -->
+<div id="joystickZone"></div>
+<div id="jumpZone"><div class="jump-label">прыжок</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.2/nipplejs.min.js"></script>
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -263,31 +249,44 @@ document.addEventListener('keyup', e => {
   keys[e.code] = false;
 });
 
-// ---------- input: mobile touch ----------
-function setupMobileBtn(id, onStart, onEnd) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  const start = (e) => {
-    e.preventDefault();
-    onStart();
-    el.classList.add('active');
-  };
-  const end = (e) => {
-    e.preventDefault();
-    onEnd();
-    el.classList.remove('active');
-  };
-  el.addEventListener('touchstart', start, { passive: false });
-  el.addEventListener('touchend', end, { passive: false });
-  el.addEventListener('touchcancel', end, { passive: false });
-  el.addEventListener('mousedown', start);
-  el.addEventListener('mouseup', end);
-  el.addEventListener('mouseleave', end);
+// ---------- input: nipple.js mobile joystick ----------
+function initNipple() {
+  const jZone = document.getElementById('joystickZone');
+  if (!jZone || jZone._nippleInited) return;
+  jZone._nippleInited = true;
+
+  const joy = nipplejs.create({
+    zone: jZone,
+    mode: 'static',
+    position: { left: '50%', top: '50%' },
+    color: '#7a9e9e',
+    size: 110,
+    restOpacity: 0.5,
+    fadeTime: 80,
+  });
+  joy.on('move', (evt, data) => {
+    if (!data.direction) return;
+    if (data.direction.x === 'left') mobileDir = -1;
+    else if (data.direction.x === 'right') mobileDir = 1;
+    else mobileDir = 0;
+  });
+  joy.on('end', () => { mobileDir = 0; });
+
+  // jump zone: tap anywhere in the right zone
+  const jumpZone = document.getElementById('jumpZone');
+  if (!jumpZone || jumpZone._jumpInited) return;
+  jumpZone._jumpInited = true;
+  const setJump = (e) => { e.preventDefault(); mobileJump = true; };
+  const clearJump = (e) => { e.preventDefault(); mobileJump = false; };
+  jumpZone.addEventListener('touchstart', setJump, { passive: false });
+  jumpZone.addEventListener('touchend', clearJump, { passive: false });
+  jumpZone.addEventListener('touchcancel', clearJump, { passive: false });
+  jumpZone.addEventListener('mousedown', setJump);
+  jumpZone.addEventListener('mouseup', clearJump);
+  jumpZone.addEventListener('mouseleave', clearJump);
 }
 
-setupMobileBtn('btnLeft',  () => mobileDir = -1, () => { if (mobileDir === -1) mobileDir = 0; });
-setupMobileBtn('btnRight', () => mobileDir = 1,  () => { if (mobileDir === 1) mobileDir = 0; });
-setupMobileBtn('btnJump',  () => mobileJump = true, () => mobileJump = false);
+initNipple();
 
 restartBtn.addEventListener('click', resetGame);
 restartBtn.addEventListener('touchstart', (e) => { e.preventDefault(); resetGame(); }, { passive: false });
