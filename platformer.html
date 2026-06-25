@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calm Platformer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #2d3a3a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: 'Segoe UI', sans-serif;
+    overflow: hidden;
+  }
+  .game-wrapper {
+    background: #3e4f4f;
+    padding: 20px;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+  canvas {
+    display: block;
+    border-radius: 8px;
+    background: #b8c9c9;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.1);
+  }
+  .hud {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 12px;
+    color: #d4e2e2;
+    font-size: 15px;
+    letter-spacing: 0.5px;
+  }
+  .hud span {
+    background: #2d3a3a;
+    padding: 6px 14px;
+    border-radius: 8px;
+  }
+  .controls-hint {
+    color: #8ba3a3;
+    font-size: 13px;
+    margin-top: 8px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="game-wrapper">
+  <canvas id="gameCanvas" width="800" height="500"></canvas>
+  <div class="hud">
+    <span>⭐ <span id="coinCount">0</span></span>
+    <span id="message" style="font-weight:600;">&#9654; игра</span>
+    <span id="restartBtn" style="cursor:pointer; user-select:none;">↻ заново</span>
+  </div>
+  <div class="controls-hint">← → двигаться &nbsp;·&nbsp; Пробел / W прыжок</div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const coinSpan = document.getElementById('coinCount');
+const messageEl = document.getElementById('message');
+const restartBtn = document.getElementById('restartBtn');
+
+const W = 800, H = 500;
+const GRAVITY = 0.5;
+const FRICTION = 0.85;
+const PLAYER_SPEED = 4;
+const JUMP_FORCE = -9;
+
+// ---------- calm palette ----------
+const COLORS = {
+  sky:         '#b8c9c9',
+  platform:    '#7a9e9e',
+  platformTop: '#8fb5b5',
+  player:      '#5b7a7a',
+  playerDark:  '#4a6565',
+  coin:        '#d4b88c',
+  coinGlow:    '#e8d5b0',
+  ground:      '#6b8f8f',
+  groundTop:   '#82a8a8',
+  goal:        '#a8c9a8',
+  goalGlow:    '#c5e0c5',
+  text:        '#3e4f4f',
+};
+
+// ---------- level data ----------
+const platforms = [
+  // ground
+  { x: 0,   y: 460, w: 800, h: 40 },
+  // floating platforms
+  { x: 80,  y: 340, w: 120, h: 18 },
+  { x: 280, y: 260, w: 100, h: 18 },
+  { x: 440, y: 320, w: 130, h: 18 },
+  { x: 620, y: 220, w: 150, h: 18 },
+  // stairs near end
+  { x: 560, y: 380, w: 80,  h: 18 },
+];
+
+const coins = [
+  { x: 130, y: 310 },
+  { x: 175, y: 310 },
+  { x: 310, y: 230 },
+  { x: 350, y: 230 },
+  { x: 480, y: 290 },
+  { x: 530, y: 290 },
+  { x: 670, y: 190 },
+  { x: 720, y: 190 },
+];
+
+const goal = { x: 740, y: 180, w: 36, h: 40 };
+
+const playerStart = { x: 50, y: 400 };
+
+// ---------- game state ----------
+let player, camera, coinsCollected, gameWon, keys, coinAnim;
+
+function resetGame() {
+  player = {
+    x: playerStart.x,
+    y: playerStart.y,
+    w: 24,
+    h: 32,
+    vx: 0,
+    vy: 0,
+    onGround: false,
+    jumpPressed: false,
+  };
+  camera = { x: 0 };
+  coinsCollected = 0;
+  gameWon = false;
+  coinSpan.textContent = '0';
+  messageEl.innerHTML = '&#9654; игра';
+  messageEl.style.color = '#d4e2e2';
+  keys = {};
+  coinAnim = 0;
+}
+
+resetGame();
+
+// ---------- input ----------
+document.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
+});
+document.addEventListener('keyup', e => {
+  keys[e.code] = false;
+});
+
+restartBtn.addEventListener('click', resetGame);
+
+// ---------- collisions ----------
+function rectCollide(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x &&
+         a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function collidePlatforms(entity, isPlayer) {
+  entity.onGround = false;
+  for (const p of platforms) {
+    if (rectCollide(entity, p)) {
+      const overlapLeft  = (entity.x + entity.w) - p.x;
+      const overlapRight = (p.x + p.w) - entity.x;
+      const overlapTop   = (entity.y + entity.h) - p.y;
+      const overlapBot   = (p.y + p.h) - entity.y;
+
+      const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBot);
+
+      if (minOverlap === overlapTop && entity.vy >= 0) {
+        entity.y = p.y - entity.h;
+        entity.vy = 0;
+        entity.onGround = true;
+      } else if (minOverlap === overlapBot && entity.vy < 0) {
+        entity.y = p.y + p.h;
+        entity.vy = 0;
+      } else if (minOverlap === overlapLeft) {
+        entity.x = p.x + p.w;
+        entity.vx = 0;
+      } else if (minOverlap === overlapRight) {
+        entity.x = p.x - entity.w;
+        entity.vx = 0;
+      }
+    }
+  }
+}
+
+// ---------- update ----------
+function update() {
+  if (gameWon) return;
+
+  // horizontal
+  let dir = 0;
+  if (keys['ArrowLeft'] || keys['KeyA']) dir = -1;
+  if (keys['ArrowRight'] || keys['KeyD']) dir = 1;
+  player.vx = dir * PLAYER_SPEED;
+
+  // jump
+  const jumpKey = keys['Space'] || keys['KeyW'] || keys['ArrowUp'];
+  if (jumpKey && player.onGround && !player.jumpPressed) {
+    player.vy = JUMP_FORCE;
+    player.jumpPressed = true;
+  }
+  if (!jumpKey) player.jumpPressed = false;
+
+  // physics
+  player.vy += GRAVITY;
+  if (player.vy > 12) player.vy = 12;
+
+  player.x += player.vx;
+  collidePlatforms(player, true);
+
+  player.y += player.vy;
+  collidePlatforms(player, true);
+
+  // bounds
+  if (player.x < 0) { player.x = 0; player.vx = 0; }
+  if (player.x + player.w > W) { player.x = W - player.w; player.vx = 0; }
+  if (player.y > H + 50) resetGame();
+
+  // coins
+  for (let i = coins.length - 1; i >= 0; i--) {
+    const c = coins[i];
+    const coinRect = { x: c.x, y: c.y, w: 14, h: 14 };
+    if (rectCollide(player, coinRect)) {
+      coins.splice(i, 1);
+      coinsCollected++;
+      coinSpan.textContent = coinsCollected;
+    }
+  }
+
+  // goal
+  if (!gameWon && rectCollide(player, goal)) {
+    gameWon = true;
+    messageEl.innerHTML = '&#10003; уровень пройден!';
+    messageEl.style.color = '#a8c9a8';
+  }
+
+  // camera
+  camera.x = player.x - W / 2 + player.w / 2;
+  camera.x = Math.max(0, Math.min(camera.x, 150));
+
+  // coin animation
+  coinAnim = (coinAnim + 0.04) % (Math.PI * 2);
+}
+
+// ---------- draw ----------
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // sky gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#d6e4e4');
+  grad.addColorStop(1, '#b8c9c9');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // decorative background hills
+  ctx.fillStyle = '#9fbaba';
+  ctx.beginPath();
+  ctx.ellipse(120, 440, 160, 60, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#8aafaf';
+  ctx.beginPath();
+  ctx.ellipse(500, 450, 220, 50, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#93b8b8';
+  ctx.beginPath();
+  ctx.ellipse(300, 460, 180, 40, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // platforms
+  for (const p of platforms) {
+    ctx.fillStyle = COLORS.platform;
+    ctx.shadowColor = 'rgba(0,0,0,0.06)';
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetY = 2;
+    ctx.beginPath();
+    const r = 6;
+    const x = p.x, y = p.y, w = p.w, h = p.h;
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+    ctx.fill();
+    // top edge highlight
+    ctx.fillStyle = COLORS.platformTop;
+    ctx.shadowBlur = 0;
+    ctx.fillRect(x + 4, y + 1, w - 8, 4);
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+  }
+
+  // coins
+  for (const c of coins) {
+    const bob = Math.sin(coinAnim + c.x * 0.05) * 3;
+    ctx.save();
+    ctx.translate(c.x + 7, c.y + 7 + bob);
+    // glow
+    ctx.shadowColor = 'rgba(212,184,140,0.5)';
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = COLORS.coinGlow;
+    ctx.beginPath();
+    ctx.arc(0, 0, 9, 0, Math.PI * 2);
+    ctx.fill();
+    // coin
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = COLORS.coin;
+    ctx.beginPath();
+    ctx.arc(0, 0, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#c4a87a';
+    ctx.beginPath();
+    ctx.arc(-1, -1, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // goal
+  const gx = goal.x, gy = goal.y, gw = goal.w, gh = goal.h;
+  ctx.save();
+  ctx.shadowColor = 'rgba(168,201,168,0.5)';
+  ctx.shadowBlur = 14;
+  ctx.fillStyle = COLORS.goal;
+  ctx.beginPath();
+  ctx.roundRect(gx, gy, gw, gh, 6);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#bcd6bc';
+  ctx.beginPath();
+  ctx.roundRect(gx + 4, gy + 4, gw - 8, gh - 8, 4);
+  ctx.fill();
+  ctx.fillStyle = '#5b7a5b';
+  ctx.font = '20px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🏁', gx + gw/2, gy + gh/2 + 1);
+  ctx.restore();
+
+  // player
+  const px = player.x, py = player.y, pw = player.w, ph = player.h;
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.10)';
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetY = 2;
+  // body
+  ctx.fillStyle = COLORS.player;
+  ctx.beginPath();
+  ctx.roundRect(px, py, pw, ph, 6);
+  ctx.fill();
+  // head
+  ctx.fillStyle = COLORS.playerDark;
+  ctx.beginPath();
+  ctx.roundRect(px + 3, py - 4, pw - 6, 10, 4);
+  ctx.fill();
+  // eyes
+  ctx.fillStyle = '#e0eaea';
+  ctx.beginPath();
+  ctx.arc(px + 7, py + 2, 2.5, 0, Math.PI * 2);
+  ctx.arc(px + 17, py + 2, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#3e4f4f';
+  ctx.beginPath();
+  ctx.arc(px + 8, py + 2, 1.2, 0, Math.PI * 2);
+  ctx.arc(px + 18, py + 2, 1.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // shadow under player
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.fillStyle = 'rgba(0,0,0,0.08)';
+  ctx.beginPath();
+  ctx.ellipse(px + pw/2, py + ph + 3, pw/2 + 2, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+
+  // win overlay
+  if (gameWon) {
+    ctx.fillStyle = 'rgba(62,79,79,0.55)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#d4e2e2';
+    ctx.font = 'bold 42px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.2)';
+    ctx.shadowBlur = 12;
+    ctx.fillText('🎉 Уровень пройден!', W/2, H/2 - 10);
+    ctx.shadowBlur = 0;
+    ctx.font = '18px sans-serif';
+    ctx.fillStyle = '#a8c9a8';
+    ctx.fillText('нажми «заново» чтобы начать снова', W/2, H/2 + 50);
+  }
+}
+
+// roundRect polyfill for older browsers
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+    if (r > w/2) r = w/2;
+    if (r > h/2) r = h/2;
+    this.moveTo(x + r, y);
+    this.lineTo(x + w - r, y);
+    this.quadraticCurveTo(x + w, y, x + w, y + r);
+    this.lineTo(x + w, y + h - r);
+    this.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    this.lineTo(x + r, y + h);
+    this.quadraticCurveTo(x, y + h, x, y + h - r);
+    this.lineTo(x, y + r);
+    this.quadraticCurveTo(x, y, x + r, y);
+    this.closePath();
+  };
+}
+
+// ---------- game loop ----------
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
