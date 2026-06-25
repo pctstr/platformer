@@ -2,59 +2,142 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Calm Platformer</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
     background: #2d3a3a;
+    font-family: 'Segoe UI', sans-serif;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .game-wrapper {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #3e4f4f;
+  }
+  .canvas-wrap {
+    flex: 1;
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
-    font-family: 'Segoe UI', sans-serif;
     overflow: hidden;
-  }
-  .game-wrapper {
-    background: #3e4f4f;
-    padding: 20px;
-    border-radius: 16px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    position: relative;
   }
   canvas {
     display: block;
-    border-radius: 8px;
     background: #b8c9c9;
-    box-shadow: inset 0 0 20px rgba(0,0,0,0.1);
+    border-radius: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
   }
   .hud {
     display: flex;
     justify-content: space-between;
-    margin-top: 12px;
+    align-items: center;
+    padding: 8px 16px;
     color: #d4e2e2;
-    font-size: 15px;
-    letter-spacing: 0.5px;
+    font-size: 16px;
+    background: #2d3a3a;
+    flex-shrink: 0;
   }
   .hud span {
-    background: #2d3a3a;
+    background: #3e4f4f;
     padding: 6px 14px;
     border-radius: 8px;
   }
+  #restartBtn {
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* ---- mobile controls ---- */
+  .controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px 20px;
+    flex-shrink: 0;
+    background: #2d3a3a;
+    gap: 12px;
+  }
+  .ctrl-group {
+    display: flex;
+    gap: 10px;
+  }
+  .ctrl-btn {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: 2px solid #7a9e9e;
+    background: rgba(122,158,158,0.2);
+    color: #d4e2e2;
+    font-size: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .ctrl-btn:active, .ctrl-btn.active {
+    background: rgba(122,158,158,0.5);
+  }
+  .ctrl-btn.jump {
+    width: 80px;
+    height: 80px;
+    font-size: 16px;
+    font-weight: 600;
+    border-color: #8fb5b5;
+    background: rgba(143,181,181,0.2);
+  }
+  .ctrl-btn.jump:active, .ctrl-btn.jump.active {
+    background: rgba(143,181,181,0.5);
+  }
   .controls-hint {
-    color: #8ba3a3;
-    font-size: 13px;
-    margin-top: 8px;
-    text-align: center;
+    display: none;
+  }
+  @media (min-width: 768px) {
+    .controls { display: none; }
+    .controls-hint {
+      display: block;
+      color: #8ba3a3;
+      font-size: 13px;
+      text-align: center;
+      padding: 8px;
+      flex-shrink: 0;
+    }
+    .hud { font-size: 15px; }
   }
 </style>
 </head>
 <body>
 <div class="game-wrapper">
-  <canvas id="gameCanvas" width="800" height="500"></canvas>
   <div class="hud">
     <span>⭐ <span id="coinCount">0</span></span>
     <span id="message" style="font-weight:600;">&#9654; игра</span>
-    <span id="restartBtn" style="cursor:pointer; user-select:none;">↻ заново</span>
+    <span id="restartBtn">↻ заново</span>
+  </div>
+  <div class="canvas-wrap">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+  <div class="controls" id="mobileControls">
+    <div class="ctrl-group">
+      <div class="ctrl-btn" id="btnLeft">&#9664;</div>
+      <div class="ctrl-btn" id="btnRight">&#9654;</div>
+    </div>
+    <div class="ctrl-group">
+      <div class="ctrl-btn jump" id="btnJump">прыжок</div>
+    </div>
   </div>
   <div class="controls-hint">← → двигаться &nbsp;·&nbsp; Пробел / W прыжок</div>
 </div>
@@ -66,9 +149,11 @@ const coinSpan = document.getElementById('coinCount');
 const messageEl = document.getElementById('message');
 const restartBtn = document.getElementById('restartBtn');
 
-const W = 800, H = 500;
+// ---------- world dimensions (logical) ----------
+const WORLD_W = 800;
+const WORLD_H = 500;
+
 const GRAVITY = 0.5;
-const FRICTION = 0.85;
 const PLAYER_SPEED = 4;
 const JUMP_FORCE = -9;
 
@@ -90,14 +175,11 @@ const COLORS = {
 
 // ---------- level data ----------
 const platforms = [
-  // ground
   { x: 0,   y: 460, w: 800, h: 40 },
-  // floating platforms
   { x: 80,  y: 340, w: 120, h: 18 },
   { x: 280, y: 260, w: 100, h: 18 },
   { x: 440, y: 320, w: 130, h: 18 },
   { x: 620, y: 220, w: 150, h: 18 },
-  // stairs near end
   { x: 560, y: 380, w: 80,  h: 18 },
 ];
 
@@ -113,11 +195,12 @@ const coins = [
 ];
 
 const goal = { x: 740, y: 180, w: 36, h: 40 };
-
 const playerStart = { x: 50, y: 400 };
 
 // ---------- game state ----------
 let player, camera, coinsCollected, gameWon, keys, coinAnim;
+let mobileDir = 0;
+let mobileJump = false;
 
 function resetGame() {
   player = {
@@ -138,11 +221,40 @@ function resetGame() {
   messageEl.style.color = '#d4e2e2';
   keys = {};
   coinAnim = 0;
+  mobileDir = 0;
+  mobileJump = false;
 }
 
 resetGame();
 
-// ---------- input ----------
+// ---------- canvas resize ----------
+function resizeCanvas() {
+  const wrap = canvas.parentElement;
+  const rect = wrap.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const w = rect.width;
+  const h = rect.height;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  // scale so world coords map to canvas
+  const scaleX = (w * dpr) / WORLD_W;
+  const scaleY = (h * dpr) / WORLD_H;
+  const scale = Math.min(scaleX, scaleY);
+  const offsetX = ((w * dpr) - WORLD_W * scale) / 2;
+  const offsetY = ((h * dpr) - WORLD_H * scale) / 2;
+  ctx.scale(scale, scale);
+  ctx.translate(offsetX / scale, offsetY / scale);
+  canvas._scale = scale;
+  canvas._ox = offsetX / scale;
+  canvas._oy = offsetY / scale;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// ---------- input: keyboard ----------
 document.addEventListener('keydown', e => {
   keys[e.code] = true;
   if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
@@ -151,7 +263,34 @@ document.addEventListener('keyup', e => {
   keys[e.code] = false;
 });
 
+// ---------- input: mobile touch ----------
+function setupMobileBtn(id, onStart, onEnd) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const start = (e) => {
+    e.preventDefault();
+    onStart();
+    el.classList.add('active');
+  };
+  const end = (e) => {
+    e.preventDefault();
+    onEnd();
+    el.classList.remove('active');
+  };
+  el.addEventListener('touchstart', start, { passive: false });
+  el.addEventListener('touchend', end, { passive: false });
+  el.addEventListener('touchcancel', end, { passive: false });
+  el.addEventListener('mousedown', start);
+  el.addEventListener('mouseup', end);
+  el.addEventListener('mouseleave', end);
+}
+
+setupMobileBtn('btnLeft',  () => mobileDir = -1, () => { if (mobileDir === -1) mobileDir = 0; });
+setupMobileBtn('btnRight', () => mobileDir = 1,  () => { if (mobileDir === 1) mobileDir = 0; });
+setupMobileBtn('btnJump',  () => mobileJump = true, () => mobileJump = false);
+
 restartBtn.addEventListener('click', resetGame);
+restartBtn.addEventListener('touchstart', (e) => { e.preventDefault(); resetGame(); }, { passive: false });
 
 // ---------- collisions ----------
 function rectCollide(a, b) {
@@ -159,7 +298,7 @@ function rectCollide(a, b) {
          a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
-function collidePlatforms(entity, isPlayer) {
+function collidePlatforms(entity) {
   entity.onGround = false;
   for (const p of platforms) {
     if (rectCollide(entity, p)) {
@@ -192,14 +331,15 @@ function collidePlatforms(entity, isPlayer) {
 function update() {
   if (gameWon) return;
 
-  // horizontal
+  // horizontal: keyboard or mobile
   let dir = 0;
   if (keys['ArrowLeft'] || keys['KeyA']) dir = -1;
   if (keys['ArrowRight'] || keys['KeyD']) dir = 1;
+  if (mobileDir !== 0) dir = mobileDir;
   player.vx = dir * PLAYER_SPEED;
 
   // jump
-  const jumpKey = keys['Space'] || keys['KeyW'] || keys['ArrowUp'];
+  const jumpKey = keys['Space'] || keys['KeyW'] || keys['ArrowUp'] || mobileJump;
   if (jumpKey && player.onGround && !player.jumpPressed) {
     player.vy = JUMP_FORCE;
     player.jumpPressed = true;
@@ -211,15 +351,15 @@ function update() {
   if (player.vy > 12) player.vy = 12;
 
   player.x += player.vx;
-  collidePlatforms(player, true);
+  collidePlatforms(player);
 
   player.y += player.vy;
-  collidePlatforms(player, true);
+  collidePlatforms(player);
 
   // bounds
   if (player.x < 0) { player.x = 0; player.vx = 0; }
-  if (player.x + player.w > W) { player.x = W - player.w; player.vx = 0; }
-  if (player.y > H + 50) resetGame();
+  if (player.x + player.w > WORLD_W) { player.x = WORLD_W - player.w; player.vx = 0; }
+  if (player.y > WORLD_H + 50) resetGame();
 
   // coins
   for (let i = coins.length - 1; i >= 0; i--) {
@@ -240,25 +380,26 @@ function update() {
   }
 
   // camera
-  camera.x = player.x - W / 2 + player.w / 2;
+  camera.x = player.x - WORLD_W / 2 + player.w / 2;
   camera.x = Math.max(0, Math.min(camera.x, 150));
 
-  // coin animation
   coinAnim = (coinAnim + 0.04) % (Math.PI * 2);
 }
 
 // ---------- draw ----------
 function draw() {
-  ctx.clearRect(0, 0, W, H);
+  ctx.save();
+  // apply camera offset
+  ctx.translate(-camera.x, 0);
 
   // sky gradient
-  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  const grad = ctx.createLinearGradient(0, 0, 0, WORLD_H);
   grad.addColorStop(0, '#d6e4e4');
   grad.addColorStop(1, '#b8c9c9');
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, WORLD_W, WORLD_H);
 
-  // decorative background hills
+  // background hills
   ctx.fillStyle = '#9fbaba';
   ctx.beginPath();
   ctx.ellipse(120, 440, 160, 60, 0, 0, Math.PI * 2);
@@ -292,7 +433,6 @@ function draw() {
     ctx.quadraticCurveTo(x, y, x + r, y);
     ctx.closePath();
     ctx.fill();
-    // top edge highlight
     ctx.fillStyle = COLORS.platformTop;
     ctx.shadowBlur = 0;
     ctx.fillRect(x + 4, y + 1, w - 8, 4);
@@ -305,14 +445,12 @@ function draw() {
     const bob = Math.sin(coinAnim + c.x * 0.05) * 3;
     ctx.save();
     ctx.translate(c.x + 7, c.y + 7 + bob);
-    // glow
     ctx.shadowColor = 'rgba(212,184,140,0.5)';
     ctx.shadowBlur = 10;
     ctx.fillStyle = COLORS.coinGlow;
     ctx.beginPath();
     ctx.arc(0, 0, 9, 0, Math.PI * 2);
     ctx.fill();
-    // coin
     ctx.shadowBlur = 0;
     ctx.fillStyle = COLORS.coin;
     ctx.beginPath();
@@ -352,17 +490,14 @@ function draw() {
   ctx.shadowColor = 'rgba(0,0,0,0.10)';
   ctx.shadowBlur = 6;
   ctx.shadowOffsetY = 2;
-  // body
   ctx.fillStyle = COLORS.player;
   ctx.beginPath();
   ctx.roundRect(px, py, pw, ph, 6);
   ctx.fill();
-  // head
   ctx.fillStyle = COLORS.playerDark;
   ctx.beginPath();
   ctx.roundRect(px + 3, py - 4, pw - 6, 10, 4);
   ctx.fill();
-  // eyes
   ctx.fillStyle = '#e0eaea';
   ctx.beginPath();
   ctx.arc(px + 7, py + 2, 2.5, 0, Math.PI * 2);
@@ -373,36 +508,39 @@ function draw() {
   ctx.arc(px + 8, py + 2, 1.2, 0, Math.PI * 2);
   ctx.arc(px + 18, py + 2, 1.2, 0, Math.PI * 2);
   ctx.fill();
-
-  // shadow under player
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
   ctx.fillStyle = 'rgba(0,0,0,0.08)';
   ctx.beginPath();
   ctx.ellipse(px + pw/2, py + ph + 3, pw/2 + 2, 4, 0, 0, Math.PI * 2);
   ctx.fill();
-
   ctx.restore();
 
-  // win overlay
+  ctx.restore(); // camera
+
+  // win overlay (screen space)
   if (gameWon) {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const cw = canvas.width, ch = canvas.height;
     ctx.fillStyle = 'rgba(62,79,79,0.55)';
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillRect(0, 0, cw, ch);
     ctx.fillStyle = '#d4e2e2';
-    ctx.font = 'bold 42px sans-serif';
+    ctx.font = `bold ${Math.min(42, cw/12)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.shadowColor = 'rgba(0,0,0,0.2)';
     ctx.shadowBlur = 12;
-    ctx.fillText('🎉 Уровень пройден!', W/2, H/2 - 10);
+    ctx.fillText('🎉 Уровень пройден!', cw/2, ch/2 - 10);
     ctx.shadowBlur = 0;
-    ctx.font = '18px sans-serif';
+    ctx.font = `${Math.min(18, cw/22)}px sans-serif`;
     ctx.fillStyle = '#a8c9a8';
-    ctx.fillText('нажми «заново» чтобы начать снова', W/2, H/2 + 50);
+    ctx.fillText('нажми «заново» чтобы начать снова', cw/2, ch/2 + 50);
+    ctx.restore();
   }
 }
 
-// roundRect polyfill for older browsers
+// roundRect polyfill
 if (!CanvasRenderingContext2D.prototype.roundRect) {
   CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
     if (r > w/2) r = w/2;
@@ -423,6 +561,8 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 // ---------- game loop ----------
 function loop() {
   update();
+  // reset transform for each frame
+  resizeCanvas();
   draw();
   requestAnimationFrame(loop);
 }
