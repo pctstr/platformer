@@ -1,0 +1,16 @@
+# Local documentation (not for GitHub)
+PROJECT.md
+
+# Playwright MCP
+.playwright-mcp/
+
+# OS junk
+Thumbs.db
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# Node (if any local installs)
+node_modules/
