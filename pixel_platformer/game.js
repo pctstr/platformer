@@ -1,31 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Pixel Platformer</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body {
-    width: 100%; height: 100%; overflow: hidden;
-    background: #1a2a1a;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-family: monospace;
-    touch-action: none;
-  }
-  #game-container canvas {
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-  }
-</style>
-</head>
-<body>
-<div id="game-container"></div>
-
-<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
-<script>
 // ============================================================
 //  PIXEL PLATFORMER — Phaser 3, 320×240, mobile-ready
 //  Two levels: Jungle → Temple
@@ -167,20 +139,16 @@ class BaseScene extends Phaser.Scene {
   }
 
   create() {
-    // register textures
     for (const t of textures2d) {
       this.textures.addCanvas(t.id, t.data);
     }
 
-    // keyboard
     this.cursors = this.input.keyboard.createCursorKeys();
     this.wasd = this.input.keyboard.addKeys('W,A,S,D');
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
-    // mobile buttons
     this.createMobileButtons();
 
-    // HUD
     this.coinText = this.add.text(6, 6, '🍀 0', { font: '13px monospace', fill: '#d4e8d4' }).setScrollFactor(0).setDepth(99);
     this.statusText = this.add.text(160, 6, '', { font: '12px monospace', fill: '#d4e8d4' }).setOrigin(0.5,0).setScrollFactor(0).setDepth(99);
   }
@@ -278,15 +246,13 @@ class JungleScene extends BaseScene {
     super.create();
     this.cameras.main.setBackgroundColor(PAL.sky1);
 
-    // ---- parallax background ----
-    // far hills
+    // parallax background
     const far = this.add.graphics().setScrollFactor(0.3).setDepth(0);
     far.fillStyle(PAL.hill);
     far.fillRect(0, 180, 320, 60);
     far.fillStyle(PAL.sky2);
     far.fillRect(0, 170, 320, 10);
 
-    // mid trees
     const mid = this.add.graphics().setScrollFactor(0.6).setDepth(1);
     for (let i = 0; i < 8; i++) {
       const tx = i * 45 + 10;
@@ -297,7 +263,6 @@ class JungleScene extends BaseScene {
       mid.fillRect(tx-4, 120, 16, 12);
     }
 
-    // near foliage
     const near = this.add.graphics().setScrollFactor(0.9).setDepth(2);
     for (let i = 0; i < 12; i++) {
       const tx = i * 30 + 5;
@@ -306,23 +271,15 @@ class JungleScene extends BaseScene {
       near.fillRect(tx+4, 196, 8, 6);
     }
 
-    // ---- platforms ----
+    // platforms
     this.platforms = this.physics.add.staticGroup();
-
-    // ground
     this.platforms.add(this.add.tileSprite(0, 224, 320, 16, 'ground').setOrigin(0,0));
 
-    // jungle platforms (vertical progression)
     const platData = [
-      // bottom area
       [20, 200, 64], [100, 190, 80], [220, 200, 64],
-      // mid climb
       [40, 160, 64], [140, 150, 80], [240, 160, 64],
-      // upper
       [80, 120, 64], [180, 110, 80], [280, 120, 64],
-      // near top
       [120, 80, 64], [220, 70, 80],
-      // top
       [160, 40, 80],
     ];
     for (const [x,y,w] of platData) {
@@ -330,7 +287,7 @@ class JungleScene extends BaseScene {
     }
     this.platforms.refresh();
 
-    // vines (decoration)
+    // vines
     const vines = this.add.graphics().setScrollFactor(0.8).setDepth(3);
     for (let i = 0; i < 6; i++) {
       const vx = i * 55 + 20;
@@ -340,11 +297,9 @@ class JungleScene extends BaseScene {
       vines.fillRect(vx+1, 100, 1, 120);
     }
 
-    // player
     this.setupPlayer(40, 200);
     this.physics.add.collider(this.player, this.platforms);
 
-    // coins
     this.coins = this.physics.add.staticGroup();
     const coinPos = [
       [40,180],[60,180],[160,130],[200,130],[100,100],[140,100],
@@ -355,7 +310,6 @@ class JungleScene extends BaseScene {
     }
     this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);
 
-    // goal at top
     this.goal = this.physics.add.staticSprite(200, 20, 'goal');
     this.physics.add.overlap(this.player, this.goal, () => this.win('TempleScene'), null, this);
   }
@@ -377,11 +331,9 @@ class TempleScene extends BaseScene {
     super.create();
     this.cameras.main.setBackgroundColor(0x2a2a3a);
 
-    // stone walls background
     const bg = this.add.graphics().setDepth(0);
     bg.fillStyle(0x3a3a4a);
     bg.fillRect(0, 0, 320, 240);
-    // brick pattern
     bg.fillStyle(0x4a4a5a);
     for (let y = 0; y < 240; y += 16) {
       const offset = (y / 16) % 2 === 0 ? 0 : 8;
@@ -390,7 +342,6 @@ class TempleScene extends BaseScene {
       }
     }
 
-    // torches
     const torchPositions = [[20, 180], [300, 180], [20, 100], [300, 100]];
     for (const [tx, ty] of torchPositions) {
       const torch = this.add.image(tx, ty, 'torch').setDepth(5);
@@ -403,7 +354,6 @@ class TempleScene extends BaseScene {
       });
     }
 
-    // platforms (stone)
     this.platforms = this.physics.add.staticGroup();
     this.platforms.add(this.add.tileSprite(0, 224, 320, 16, 'stone').setOrigin(0,0));
 
@@ -419,11 +369,9 @@ class TempleScene extends BaseScene {
     }
     this.platforms.refresh();
 
-    // player
     this.setupPlayer(40, 200);
     this.physics.add.collider(this.player, this.platforms);
 
-    // coins
     this.coins = this.physics.add.staticGroup();
     const coinPos = [
       [40,180],[160,130],[100,100],[200,90],[80,60],[160,50]
@@ -433,7 +381,6 @@ class TempleScene extends BaseScene {
     }
     this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);
 
-    // goal
     this.goal = this.physics.add.staticSprite(160, 20, 'goal');
     this.physics.add.overlap(this.player, this.goal, () => {
       this.statusText.setText('🎉 ВСЁ ПРОЙДЕНО!');
@@ -466,6 +413,3 @@ const config = {
 };
 
 new Phaser.Game(config);
-</script>
-</body>
-</html>
