@@ -50,12 +50,12 @@ export class TempleLevel extends BaseLevel {
     }
     this.platforms.refresh();
 
-    this.setupPlayer(40, 200);
+    this.setupPlayer(40, this.startY);
     this.physics.add.collider(this.player, this.platforms);
 
     this.coins = this.physics.add.staticGroup();
     const coinPos = [
-      [40,180],[160,130],[100,100],[200,90],[80,60],[160,50]
+      [40,170],[160,110],[100,90],[200,80],[80,50],[160,40]
     ];
     for (const [x,y] of coinPos) {
       this.coins.add(this.physics.add.staticSprite(x+4, y+4, 'coin'));

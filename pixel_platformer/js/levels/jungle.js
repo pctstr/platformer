@@ -63,13 +63,13 @@ export class JungleLevel extends BaseLevel {
       vines.fillRect(vx+1, 100, 1, 120);
     }
 
-    this.setupPlayer(40, 200);
+    this.setupPlayer(40, this.startY);
     this.physics.add.collider(this.player, this.platforms);
 
     this.coins = this.physics.add.staticGroup();
     const coinPos = [
-      [40,180],[60,180],[160,130],[200,130],[100,100],[140,100],
-      [200,90],[240,90],[180,60],[200,60]
+      [40,170],[60,170],[160,120],[200,120],[100,90],[140,90],
+      [200,80],[240,80],[180,50],[200,50]
     ];
     for (const [x,y] of coinPos) {
       this.coins.add(this.physics.add.staticSprite(x+4, y+4, 'coin'));

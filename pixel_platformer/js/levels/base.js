@@ -11,6 +11,7 @@ export class BaseLevel extends Phaser.Scene {
   init(data) {
     this.coinCount = data.coinCount || 0;
     this.fromLevel = data.from || null;
+    this.startY = data.startY || 200;
     this.gameWon = false;
     this.touchLeft = false;
     this.touchRight = false;
@@ -28,7 +29,7 @@ export class BaseLevel extends Phaser.Scene {
 
     this.coinText = this.add.text(6, 6, '🍀 ' + this.coinCount, { font: '13px monospace', fill: '#d4e8d4' }).setScrollFactor(0).setDepth(99);
     this.statusText = this.add.text(160, 6, '', { font: '12px monospace', fill: '#d4e8d4' }).setOrigin(0.5,0).setScrollFactor(0).setDepth(99);
-    this.add.text(310, 6, 'v1.0.112', { font: '10px monospace', fill: '#6a9a6a' }).setOrigin(1,0).setScrollFactor(0).setDepth(99);
+    this.add.text(310, 6, 'v1.0.113', { font: '10px monospace', fill: '#6a9a6a' }).setOrigin(1,0).setScrollFactor(0).setDepth(99);
   }
 
   createMobileButtons() {
@@ -75,7 +76,7 @@ export class BaseLevel extends Phaser.Scene {
     this.player.setSize(10, 22);
     this.player.setOffset(1, 2);
     this.player.setBounce(0.1);
-    this.player.setCollideWorldBounds(false);
+    this.player.setCollideWorldBounds(true);
   }
 
   setupControls() {
@@ -104,19 +105,13 @@ export class BaseLevel extends Phaser.Scene {
 
   checkEdgeTransition(nextScene, prevScene) {
     const p = this.player;
-    // fell off bottom -> respawn
-    if (p.y > 260) {
-      p.setPosition(40, 200);
-      p.setVelocity(0, 0);
-      return;
-    }
-    // right edge -> next level
+    // right edge -> next level (preserve Y)
     if (p.x > 330 && nextScene) {
-      this.scene.start(nextScene, { coinCount: this.coinCount, from: this.scene.key });
+      this.scene.start(nextScene, { coinCount: this.coinCount, from: this.scene.key, startY: p.y });
     }
-    // left edge -> previous level
+    // left edge -> previous level (preserve Y)
     if (p.x < -20 && prevScene) {
-      this.scene.start(prevScene, { coinCount: this.coinCount, from: this.scene.key });
+      this.scene.start(prevScene, { coinCount: this.coinCount, from: this.scene.key, startY: p.y });
     }
   }
 
