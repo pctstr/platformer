@@ -62,13 +62,6 @@ export class TempleLevel extends BaseLevel {
     }
     this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);
 
-    this.goal = this.physics.add.staticSprite(160, 20, 'goal');
-    this.physics.add.overlap(this.player, this.goal, () => {
-      this.statusText.setText('🎉 ВСЁ ПРОЙДЕНО!');
-      this.statusText.setStyle({ font: '14px monospace', fill: '#e8c860', fontStyle: 'bold' });
-      this.gameWon = true;
-      this.physics.pause();
-    }, null, this);
   }
 
   update() {

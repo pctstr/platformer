@@ -76,8 +76,6 @@ export class JungleLevel extends BaseLevel {
     }
     this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);
 
-    this.goal = this.physics.add.staticSprite(200, 20, 'goal');
-    this.physics.add.overlap(this.player, this.goal, () => this.win('Temple'), null, this);
   }
 
   update() {
