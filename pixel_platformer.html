@@ -184,7 +184,7 @@ class GameScene extends Phaser.Scene {
 
     // keyboard
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.wasd = this.input.keyboard.addKeys(Phaser.Input.Keyboard.KeyCodes.W, Phaser.Input.Keyboard.KeyCodes.A, Phaser.Input.Keyboard.KeyCodes.S, Phaser.Input.Keyboard.KeyCodes.D);
+    this.wasd = this.input.keyboard.addKeys('W,A,S,D');
 
     // touch state
     this.touchLeft = false;
