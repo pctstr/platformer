@@ -11,6 +11,7 @@ export class BaseLevel extends Phaser.Scene {
   init(data) {
     this.coinCount = data.coinCount || 0;
     this.fromLevel = data.from || null;
+    this.gameWon = false;
     this.touchLeft = false;
     this.touchRight = false;
     this.touchJump = false;
@@ -113,5 +114,16 @@ export class BaseLevel extends Phaser.Scene {
         this.scene.start(prevScene, { coinCount: this.coinCount, from: this.scene.key });
       }
     }
+  }
+
+  win(nextScene) {
+    if (this.gameWon) return;
+    this.gameWon = true;
+    this.statusText.setText('УРОВЕНЬ ПРОЙДЕН!');
+    this.statusText.setStyle({ font: '14px monospace', fill: '#8ac88a', fontStyle: 'bold' });
+    this.physics.pause();
+    this.time.delayedCall(1500, () => {
+      this.scene.start(nextScene);
+    });
   }
 }

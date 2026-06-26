@@ -1,6 +1,5 @@
 // ============================================================
-//  PIXEL PLATFORMER — Phaser 3, 320×240, mobile-ready
-//  Two levels: Jungle → Temple
+//  PIXEL PLATFORMER v1.0.111 — bundled, no modules (works via file://)
 // ============================================================
 const GW = 320, GH = 240;
 
@@ -20,7 +19,6 @@ const PAL = {
   btnBg: 0x2a5a2a, btnBd: 0x4a8a4a, txt: 0xd4e8d4,
 };
 
-// ---- pixel helper ----
 function px(ctx, x, y, color) {
   if (color !== undefined) {
     ctx.fillStyle = '#' + color.toString(16).padStart(6,'0');
@@ -36,7 +34,6 @@ function makeTex(id, w, h, fn) {
 }
 
 const textures2d = [
-  // player 12x24
   makeTex('player', 12, 24, (ctx) => {
     const rows = [
       '...HHHH...', '..HHHHHH..', '.HHHHHHHH.', '.HPPPPPPH.',
@@ -60,14 +57,12 @@ const textures2d = [
     px(ctx, 5, 8, PAL.plyP); px(ctx, 8, 8, PAL.plyP);
   }),
 
-  // ground tile 16x16
   makeTex('ground', 16, 16, (ctx) => {
     ctx.fillStyle='#'+PAL.gnd.toString(16).padStart(6,'0'); ctx.fillRect(0,0,16,16);
     ctx.fillStyle='#'+PAL.gndT.toString(16).padStart(6,'0'); ctx.fillRect(0,0,16,4);
     px(ctx,2,0,PAL.gndT); px(ctx,6,0,PAL.gndT); px(ctx,10,0,PAL.gndT); px(ctx,14,1,PAL.gndT);
   }),
 
-  // platform tile 16x16
   makeTex('platform', 16, 16, (ctx) => {
     ctx.fillStyle='#'+PAL.plat.toString(16).padStart(6,'0'); ctx.fillRect(0,0,16,16);
     ctx.fillStyle='#'+PAL.platT.toString(16).padStart(6,'0'); ctx.fillRect(0,0,16,4);
@@ -76,7 +71,6 @@ const textures2d = [
     px(ctx,5,8,PAL.platS); px(ctx,11,10,PAL.platS); px(ctx,8,13,PAL.platS);
   }),
 
-  // coin 8x8
   makeTex('coin', 8, 8, (ctx) => {
     ctx.fillStyle='#'+PAL.coin.toString(16).padStart(6,'0');
     ctx.fillRect(1,0,6,1); ctx.fillRect(0,1,8,6); ctx.fillRect(1,7,6,1);
@@ -84,21 +78,18 @@ const textures2d = [
     ctx.fillStyle='#'+PAL.coinD.toString(16).padStart(6,'0'); ctx.fillRect(4,3,2,3);
   }),
 
-  // goal flag 16x24
   makeTex('goal', 16, 24, (ctx) => {
     ctx.fillStyle='#'+PAL.goal.toString(16).padStart(6,'0'); ctx.fillRect(6,0,4,24);
     ctx.fillStyle='#'+PAL.flagC.toString(16).padStart(6,'0'); ctx.fillRect(10,2,12,10);
     ctx.fillStyle='#'+PAL.goalI.toString(16).padStart(6,'0'); ctx.fillRect(10,2,12,3);
   }),
 
-  // vine 4x16
   makeTex('vine', 4, 16, (ctx) => {
     ctx.fillStyle='#'+PAL.vine.toString(16).padStart(6,'0'); ctx.fillRect(0,0,4,16);
     ctx.fillStyle='#'+PAL.vineL.toString(16).padStart(6,'0');
     ctx.fillRect(1,0,1,16); ctx.fillRect(3,2,1,12);
   }),
 
-  // tree trunk 16x32
   makeTex('tree', 16, 32, (ctx) => {
     ctx.fillStyle='#'+PAL.tree.toString(16).padStart(6,'0'); ctx.fillRect(4,0,8,32);
     ctx.fillStyle='#'+PAL.treeD.toString(16).padStart(6,'0'); ctx.fillRect(4,0,2,32);
@@ -107,7 +98,6 @@ const textures2d = [
     ctx.fillRect(0,4,16,4);
   }),
 
-  // stone tile 16x16
   makeTex('stone', 16, 16, (ctx) => {
     ctx.fillStyle='#'+PAL.stone.toString(16).padStart(6,'0'); ctx.fillRect(0,0,16,16);
     ctx.fillStyle='#'+PAL.stoneL.toString(16).padStart(6,'0'); ctx.fillRect(0,0,16,2);
@@ -116,7 +106,6 @@ const textures2d = [
     px(ctx,5,6,PAL.stoneD); px(ctx,11,9,PAL.stoneD); px(ctx,8,12,PAL.stoneD);
   }),
 
-  // torch 8x16
   makeTex('torch', 8, 16, (ctx) => {
     ctx.fillStyle='#'+PAL.torchG.toString(16).padStart(6,'0'); ctx.fillRect(3,8,2,8);
     ctx.fillStyle='#'+PAL.torch.toString(16).padStart(6,'0');
@@ -126,12 +115,21 @@ const textures2d = [
   }),
 ];
 
+function registerTextures(scene) {
+  for (const t of textures2d) {
+    scene.textures.addCanvas(t.id, t.data);
+  }
+}
+
 // ============================================================
-//  Base Scene with common code
+//  BASE LEVEL
 // ============================================================
-class BaseScene extends Phaser.Scene {
-  init() {
-    this.coinCount = 0;
+class BaseLevel extends Phaser.Scene {
+  constructor(key) { super(key); }
+
+  init(data) {
+    this.coinCount = data.coinCount || 0;
+    this.fromLevel = data.from || null;
     this.gameWon = false;
     this.touchLeft = false;
     this.touchRight = false;
@@ -139,28 +137,24 @@ class BaseScene extends Phaser.Scene {
   }
 
   create() {
-    for (const t of textures2d) {
-      this.textures.addCanvas(t.id, t.data);
-    }
-
+    registerTextures(this);
     this.cursors = this.input.keyboard.createCursorKeys();
     this.wasd = this.input.keyboard.addKeys('W,A,S,D');
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-
     this.createMobileButtons();
-
-    this.coinText = this.add.text(6, 6, '🍀 0', { font: '13px monospace', fill: '#d4e8d4' }).setScrollFactor(0).setDepth(99);
+    this.coinText = this.add.text(6, 6, '🍀 ' + this.coinCount, { font: '13px monospace', fill: '#d4e8d4' }).setScrollFactor(0).setDepth(99);
     this.statusText = this.add.text(160, 6, '', { font: '12px monospace', fill: '#d4e8d4' }).setOrigin(0.5,0).setScrollFactor(0).setDepth(99);
+    this.add.text(310, 6, 'v1.0.111', { font: '10px monospace', fill: '#6a9a6a' }).setOrigin(1,0).setScrollFactor(0).setDepth(99);
   }
 
   createMobileButtons() {
     const btnAlpha = 0.6;
     const btnLayer = this.add.graphics().setScrollFactor(0).setDepth(100);
-    btnLayer.fillStyle(PAL.btnBg, btnAlpha);
+    btnLayer.fillStyle(0x2a5a2a, btnAlpha);
     btnLayer.fillRoundedRect(18, 202, 36, 24, 4);
     btnLayer.fillRoundedRect(68, 202, 36, 24, 4);
     btnLayer.fillRoundedRect(250, 200, 60, 30, 4);
-    btnLayer.lineStyle(1, PAL.btnBd, 1);
+    btnLayer.lineStyle(1, 0x4a8a4a, 1);
     btnLayer.strokeRoundedRect(18, 202, 36, 24, 4);
     btnLayer.strokeRoundedRect(68, 202, 36, 24, 4);
     btnLayer.strokeRoundedRect(250, 200, 60, 30, 4);
@@ -204,15 +198,12 @@ class BaseScene extends Phaser.Scene {
     const spd = 110;
     const jump = -210;
     const p = this.player;
-
     let mx = 0;
     if (this.cursors.left.isDown || this.wasd.A.isDown || this.touchLeft) mx = -1;
     else if (this.cursors.right.isDown || this.wasd.D.isDown || this.touchRight) mx = 1;
-
     p.setVelocityX(mx * spd);
     if (mx < 0) p.setFlipX(true);
     else if (mx > 0) p.setFlipX(false);
-
     if ((this.cursors.up.isDown || this.wasd.W.isDown || this.spaceKey.isDown || this.touchJump) && p.body.touching.down) {
       p.setVelocityY(jump);
     }
@@ -222,6 +213,16 @@ class BaseScene extends Phaser.Scene {
     coin.destroy();
     this.coinCount++;
     this.coinText.setText('🍀 ' + this.coinCount);
+  }
+
+  checkEdgeTransition(nextScene, prevScene) {
+    const p = this.player;
+    if (p.x > 320 && nextScene) {
+      this.scene.start(nextScene, { coinCount: this.coinCount, from: this.scene.key });
+    }
+    if (p.x < -12 && prevScene) {
+      this.scene.start(prevScene, { coinCount: this.coinCount, from: this.scene.key });
+    }
   }
 
   win(nextScene) {
@@ -237,28 +238,24 @@ class BaseScene extends Phaser.Scene {
 }
 
 // ============================================================
-//  Level 1: Jungle
+//  LEVEL 1: Jungle
 // ============================================================
-class JungleScene extends BaseScene {
+class JungleLevel extends BaseLevel {
   constructor() { super('Jungle'); }
 
   create() {
     super.create();
-    this.cameras.main.setBackgroundColor(PAL.sky1);
+    this.cameras.main.setBackgroundColor(0x8ab88a);
 
-    // parallax background
     const far = this.add.graphics().setScrollFactor(0.3).setDepth(0);
-    far.fillStyle(PAL.hill);
-    far.fillRect(0, 180, 320, 60);
-    far.fillStyle(PAL.sky2);
-    far.fillRect(0, 170, 320, 10);
+    far.fillStyle(0x5a8a5a); far.fillRect(0, 180, 320, 60);
+    far.fillStyle(0x6a9a6a); far.fillRect(0, 170, 320, 10);
 
     const mid = this.add.graphics().setScrollFactor(0.6).setDepth(1);
     for (let i = 0; i < 8; i++) {
       const tx = i * 45 + 10;
-      mid.fillStyle(PAL.tree);
-      mid.fillRect(tx, 140, 8, 80);
-      mid.fillStyle(PAL.leaf);
+      mid.fillStyle(0x4a3a2a); mid.fillRect(tx, 140, 8, 80);
+      mid.fillStyle(0x4a8a4a);
       mid.fillRect(tx-6, 130, 20, 16);
       mid.fillRect(tx-4, 120, 16, 12);
     }
@@ -266,15 +263,13 @@ class JungleScene extends BaseScene {
     const near = this.add.graphics().setScrollFactor(0.9).setDepth(2);
     for (let i = 0; i < 12; i++) {
       const tx = i * 30 + 5;
-      near.fillStyle(PAL.leafL);
+      near.fillStyle(0x5a9a5a);
       near.fillRect(tx, 200, 12, 8);
       near.fillRect(tx+4, 196, 8, 6);
     }
 
-    // platforms
     this.platforms = this.physics.add.staticGroup();
     this.platforms.add(this.add.tileSprite(0, 224, 320, 16, 'ground').setOrigin(0,0));
-
     const platData = [
       [20, 200, 64], [100, 190, 80], [220, 200, 64],
       [40, 160, 64], [140, 150, 80], [240, 160, 64],
@@ -287,14 +282,11 @@ class JungleScene extends BaseScene {
     }
     this.platforms.refresh();
 
-    // vines
     const vines = this.add.graphics().setScrollFactor(0.8).setDepth(3);
     for (let i = 0; i < 6; i++) {
       const vx = i * 55 + 20;
-      vines.fillStyle(PAL.vine);
-      vines.fillRect(vx, 100, 4, 120);
-      vines.fillStyle(PAL.vineL);
-      vines.fillRect(vx+1, 100, 1, 120);
+      vines.fillStyle(0x3a6a3a); vines.fillRect(vx, 100, 4, 120);
+      vines.fillStyle(0x4a8a4a); vines.fillRect(vx+1, 100, 1, 120);
     }
 
     this.setupPlayer(40, 200);
@@ -311,20 +303,21 @@ class JungleScene extends BaseScene {
     this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);
 
     this.goal = this.physics.add.staticSprite(200, 20, 'goal');
-    this.physics.add.overlap(this.player, this.goal, () => this.win('TempleScene'), null, this);
+    this.physics.add.overlap(this.player, this.goal, () => this.win('Temple'), null, this);
   }
 
   update() {
     if (this.gameWon) return;
     this.setupControls();
+    this.checkEdgeTransition('Temple', null);
     this.statusText.setText('');
   }
 }
 
 // ============================================================
-//  Level 2: Temple
+//  LEVEL 2: Temple
 // ============================================================
-class TempleScene extends BaseScene {
+class TempleLevel extends BaseLevel {
   constructor() { super('Temple'); }
 
   create() {
@@ -332,8 +325,7 @@ class TempleScene extends BaseScene {
     this.cameras.main.setBackgroundColor(0x2a2a3a);
 
     const bg = this.add.graphics().setDepth(0);
-    bg.fillStyle(0x3a3a4a);
-    bg.fillRect(0, 0, 320, 240);
+    bg.fillStyle(0x3a3a4a); bg.fillRect(0, 0, 320, 240);
     bg.fillStyle(0x4a4a5a);
     for (let y = 0; y < 240; y += 16) {
       const offset = (y / 16) % 2 === 0 ? 0 : 8;
@@ -356,7 +348,6 @@ class TempleScene extends BaseScene {
 
     this.platforms = this.physics.add.staticGroup();
     this.platforms.add(this.add.tileSprite(0, 224, 320, 16, 'stone').setOrigin(0,0));
-
     const platData = [
       [20, 200, 64], [120, 190, 80], [240, 200, 64],
       [60, 160, 64], [180, 150, 80],
@@ -393,6 +384,7 @@ class TempleScene extends BaseScene {
   update() {
     if (this.gameWon) return;
     this.setupControls();
+    this.checkEdgeTransition(null, 'Jungle');
     this.statusText.setText('');
   }
 }
@@ -409,7 +401,7 @@ const config = {
   input: { activePointers: 3 },
   physics: { default: 'arcade', arcade: { gravity: { y: 480 }, debug: false } },
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-  scene: [JungleScene, TempleScene],
+  scene: [JungleLevel, TempleLevel],
 };
 
 new Phaser.Game(config);
