@@ -26,30 +26,36 @@
 
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
 <script>
+// ============================================================
+//  PIXEL PLATFORMER — Phaser 3, 320×240, mobile-ready
+//  Two levels: Jungle → Temple
+// ============================================================
+const GW = 320, GH = 240;
+
 // ---- palette ----
-const C = {
-  sky:    0x8ab88a,
-  skyT:   0xa8d4a8,
-  hill:   0x6aaa6a,
-  plat:   0x4a7a4a,
-  platT:  0x6aaa6a,
-  gnd:    0x3a5a3a,
-  gndT:   0x5a8a5a,
-  ply:    0x2a5a2a,
-  plyH:   0x3a7a3a,
-  plyE:   0xc8e8c8,
-  plyP:   0x1a2a1a,
-  coin:   0xc4d88c,
-  coinG:  0xdce8b0,
-  goal:   0x6aaa6a,
-  goalI:  0x8ac88a,
-  flagC:  0xc8e8c8,
-  btnBg:  0x2a5a2a,
-  btnBd:  0x4a8a4a,
-  txt:    0xd4e8d4,
+const PAL = {
+  sky1: 0x8ab88a, sky2: 0x6a9a6a,
+  hill: 0x5a8a5a,
+  plat: 0x4a7a4a, platT: 0x6aaa6a, platS: 0x3a5a3a,
+  gnd: 0x3a5a3a, gndT: 0x5a8a5a,
+  ply: 0x2a5a2a, plyH: 0x3a7a3a, plyE: 0xc8e8c8, plyP: 0x1a2a1a,
+  coin: 0xc4d88c, coinG: 0xdce8b0, coinD: 0x94a86c,
+  goal: 0x6aaa6a, goalI: 0x8ac88a, flagC: 0xc8e8c8,
+  vine: 0x3a6a3a, vineL: 0x4a8a4a,
+  tree: 0x4a3a2a, treeD: 0x3a2a1a, leaf: 0x4a8a4a, leafL: 0x5a9a5a,
+  stone: 0x6a6a6a, stoneD: 0x5a5a5a, stoneL: 0x7a7a7a,
+  torch: 0xd4a840, torchF: 0xe8c860, torchG: 0xa87820,
+  btnBg: 0x2a5a2a, btnBd: 0x4a8a4a, txt: 0xd4e8d4,
 };
 
-// ---- generate pixel textures via Canvas 2D ----
+// ---- pixel helper ----
+function px(ctx, x, y, color) {
+  if (color !== undefined) {
+    ctx.fillStyle = '#' + color.toString(16).padStart(6,'0');
+    ctx.fillRect(x, y, 1, 1);
+  }
+}
+
 function makeTex(id, w, h, fn) {
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
@@ -58,6 +64,7 @@ function makeTex(id, w, h, fn) {
 }
 
 const textures2d = [
+  // player 12x24
   makeTex('player', 12, 24, (ctx) => {
     const rows = [
       '...HHHH...', '..HHHHHH..', '.HHHHHHHH.', '.HPPPPPPH.',
@@ -71,47 +78,93 @@ const textures2d = [
       for (let x=0; x<12; x++) {
         const ch = rows[y]?.[x];
         let col;
-        if (ch==='H') col='#3a7a3a'; else if (ch==='P') col='#2a5a2a';
-        else if (ch==='E') col='#c8e8c8'; else continue;
-        ctx.fillStyle = col;
+        if (ch==='H') col=PAL.plyH; else if (ch==='P') col=PAL.ply;
+        else if (ch==='E') col=PAL.plyE; else continue;
+        ctx.fillStyle = '#'+col.toString(16).padStart(6,'0');
         ctx.fillRect(x, y, 1, 1);
       }
     }
-    ctx.fillStyle = '#c8e8c8';
-    ctx.fillRect(4, 8, 1, 1); ctx.fillRect(7, 8, 1, 1);
-    ctx.fillStyle = '#1a2a1a';
-    ctx.fillRect(5, 8, 1, 1); ctx.fillRect(8, 8, 1, 1);
+    px(ctx, 4, 8, PAL.plyE); px(ctx, 7, 8, PAL.plyE);
+    px(ctx, 5, 8, PAL.plyP); px(ctx, 8, 8, PAL.plyP);
   }),
+
+  // ground tile 16x16
   makeTex('ground', 16, 16, (ctx) => {
-    ctx.fillStyle = '#3a5a3a'; ctx.fillRect(0,0,16,16);
-    ctx.fillStyle = '#5a8a5a'; ctx.fillRect(0,0,16,4);
-    ctx.fillStyle = '#5a8a5a';
-    ctx.fillRect(2,0,1,1); ctx.fillRect(6,0,1,1);
-    ctx.fillRect(10,0,1,1); ctx.fillRect(14,1,1,1);
+    ctx.fillStyle='#'+PAL.gnd.toString(16).padStart(6,'0'); ctx.fillRect(0,0,16,16);
+    ctx.fillStyle='#'+PAL.gndT.toString(16).padStart(6,'0'); ctx.fillRect(0,0,16,4);
+    px(ctx,2,0,PAL.gndT); px(ctx,6,0,PAL.gndT); px(ctx,10,0,PAL.gndT); px(ctx,14,1,PAL.gndT);
   }),
+
+  // platform tile 16x16
   makeTex('platform', 16, 16, (ctx) => {
-    ctx.fillStyle = '#4a7a4a'; ctx.fillRect(0,0,16,16);
-    ctx.fillStyle = '#6aaa6a'; ctx.fillRect(0,0,16,4);
-    ctx.fillStyle = '#3a5a3a';
+    ctx.fillStyle='#'+PAL.plat.toString(16).padStart(6,'0'); ctx.fillRect(0,0,16,16);
+    ctx.fillStyle='#'+PAL.platT.toString(16).padStart(6,'0'); ctx.fillRect(0,0,16,4);
+    ctx.fillStyle='#'+PAL.platS.toString(16).padStart(6,'0');
     ctx.fillRect(0,0,2,16); ctx.fillRect(14,0,2,16);
-    ctx.fillRect(5,8,1,1); ctx.fillRect(11,10,1,1); ctx.fillRect(8,13,1,1);
+    px(ctx,5,8,PAL.platS); px(ctx,11,10,PAL.platS); px(ctx,8,13,PAL.platS);
   }),
+
+  // coin 8x8
   makeTex('coin', 8, 8, (ctx) => {
-    ctx.fillStyle = '#c4d88c';
+    ctx.fillStyle='#'+PAL.coin.toString(16).padStart(6,'0');
     ctx.fillRect(1,0,6,1); ctx.fillRect(0,1,8,6); ctx.fillRect(1,7,6,1);
-    ctx.fillStyle = '#dce8b0'; ctx.fillRect(2,2,4,4);
-    ctx.fillStyle = '#94a86c'; ctx.fillRect(4,3,2,3);
+    ctx.fillStyle='#'+PAL.coinG.toString(16).padStart(6,'0'); ctx.fillRect(2,2,4,4);
+    ctx.fillStyle='#'+PAL.coinD.toString(16).padStart(6,'0'); ctx.fillRect(4,3,2,3);
   }),
+
+  // goal flag 16x24
   makeTex('goal', 16, 24, (ctx) => {
-    ctx.fillStyle = '#6aaa6a'; ctx.fillRect(6,0,4,24);
-    ctx.fillStyle = '#c8e8c8'; ctx.fillRect(10,2,12,10);
-    ctx.fillStyle = '#8ac88a'; ctx.fillRect(10,2,12,3);
+    ctx.fillStyle='#'+PAL.goal.toString(16).padStart(6,'0'); ctx.fillRect(6,0,4,24);
+    ctx.fillStyle='#'+PAL.flagC.toString(16).padStart(6,'0'); ctx.fillRect(10,2,12,10);
+    ctx.fillStyle='#'+PAL.goalI.toString(16).padStart(6,'0'); ctx.fillRect(10,2,12,3);
+  }),
+
+  // vine 4x16
+  makeTex('vine', 4, 16, (ctx) => {
+    ctx.fillStyle='#'+PAL.vine.toString(16).padStart(6,'0'); ctx.fillRect(0,0,4,16);
+    ctx.fillStyle='#'+PAL.vineL.toString(16).padStart(6,'0');
+    ctx.fillRect(1,0,1,16); ctx.fillRect(3,2,1,12);
+  }),
+
+  // tree trunk 16x32
+  makeTex('tree', 16, 32, (ctx) => {
+    ctx.fillStyle='#'+PAL.tree.toString(16).padStart(6,'0'); ctx.fillRect(4,0,8,32);
+    ctx.fillStyle='#'+PAL.treeD.toString(16).padStart(6,'0'); ctx.fillRect(4,0,2,32);
+    ctx.fillStyle='#'+PAL.leaf.toString(16).padStart(6,'0');
+    ctx.fillRect(0,0,4,4); ctx.fillRect(12,0,4,4);
+    ctx.fillRect(0,4,16,4);
+  }),
+
+  // stone tile 16x16
+  makeTex('stone', 16, 16, (ctx) => {
+    ctx.fillStyle='#'+PAL.stone.toString(16).padStart(6,'0'); ctx.fillRect(0,0,16,16);
+    ctx.fillStyle='#'+PAL.stoneL.toString(16).padStart(6,'0'); ctx.fillRect(0,0,16,2);
+    ctx.fillStyle='#'+PAL.stoneD.toString(16).padStart(6,'0');
+    ctx.fillRect(0,0,2,16); ctx.fillRect(14,0,2,16);
+    px(ctx,5,6,PAL.stoneD); px(ctx,11,9,PAL.stoneD); px(ctx,8,12,PAL.stoneD);
+  }),
+
+  // torch 8x16
+  makeTex('torch', 8, 16, (ctx) => {
+    ctx.fillStyle='#'+PAL.torchG.toString(16).padStart(6,'0'); ctx.fillRect(3,8,2,8);
+    ctx.fillStyle='#'+PAL.torch.toString(16).padStart(6,'0');
+    ctx.fillRect(2,4,4,4); ctx.fillRect(3,2,2,2);
+    ctx.fillStyle='#'+PAL.torchF.toString(16).padStart(6,'0');
+    ctx.fillRect(3,0,2,2);
   }),
 ];
 
-// ---- Scene ----
-class GameScene extends Phaser.Scene {
-  constructor() { super('Game'); }
+// ============================================================
+//  Base Scene with common code
+// ============================================================
+class BaseScene extends Phaser.Scene {
+  init() {
+    this.coinCount = 0;
+    this.gameWon = false;
+    this.touchLeft = false;
+    this.touchRight = false;
+    this.touchJump = false;
+  }
 
   create() {
     // register textures
@@ -119,91 +172,31 @@ class GameScene extends Phaser.Scene {
       this.textures.addCanvas(t.id, t.data);
     }
 
-    this.cameras.main.setBackgroundColor(C.sky);
-
-    // background (simple gradient via graphics)
-    const bg = this.add.graphics();
-    for (let y=0; y<240; y++) {
-      const t = y/240;
-      const r = Math.floor(0xbe + (0x8a-0xbe)*t);
-      const g = Math.floor(0xe8 + (0xc8-0xe8)*t);
-      const b = Math.floor(0xbe + (0x8a-0xbe)*t);
-      bg.fillStyle(Phaser.Display.Color.GetColor(r,g,b));
-      bg.fillRect(0, y, 320, 1);
-    }
-    // hills
-    bg.fillStyle(C.hill);
-    function hill(cx, cy, rw, rh) {
-      for (let y=0; y<rh; y++) {
-        const w = Math.floor(rw * Math.sin(Math.PI*y/rh));
-        bg.fillRect(cx-w, cy-rh+y, w*2, 1);
-      }
-    }
-    hill(80, 228, 100, 60);
-    hill(220, 232, 140, 55);
-    hill(160, 234, 120, 50);
-    bg.setDepth(0);
-
-    // platforms
-    const platGroup = this.physics.add.staticGroup();
-
-    // ground
-    const ground = this.add.tileSprite(0, 224, 320, 16, 'ground').setOrigin(0,0);
-    platGroup.add(ground);
-
-    const platData = [
-      [24, 184, 112], [130, 142, 96], [204, 168, 96],
-      [280, 116, 128], [256, 196, 64], [0, 200, 64],
-    ];
-    for (const [x,y,w] of platData) {
-      const p = this.add.tileSprite(x, y, w, 16, 'platform').setOrigin(0,0);
-      platGroup.add(p);
-    }
-    platGroup.refresh();
-
-    // player
-    this.player = this.physics.add.sprite(36, 196, 'player');
-    this.player.setSize(10, 22);
-    this.player.setOffset(1, 2);
-    this.player.setBounce(0.1);
-    this.player.setCollideWorldBounds(true);
-    this.physics.add.collider(this.player, platGroup);
-
-    // coins
-    this.coins = this.physics.add.staticGroup();
-    const coinPos = [[48,174],[90,174],[156,132],[188,132],[230,158],[258,158],[310,106],[314,106]];
-    for (const [x,y] of coinPos) {
-      const c = this.physics.add.staticSprite(x+4, y+4, 'coin');
-      this.coins.add(c);
-    }
-    this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);
-
-    // goal
-    this.goal = this.physics.add.staticSprite(300, 84, 'goal');
-    this.physics.add.overlap(this.player, this.goal, this.win, null, this);
-
     // keyboard
     this.cursors = this.input.keyboard.createCursorKeys();
     this.wasd = this.input.keyboard.addKeys('W,A,S,D');
+    this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
-    // touch state
-    this.touchLeft = false;
-    this.touchRight = false;
-    this.touchJump = false;
+    // mobile buttons
+    this.createMobileButtons();
 
-    // ---- mobile buttons (simple graphics) ----
+    // HUD
+    this.coinText = this.add.text(6, 6, '🍀 0', { font: '13px monospace', fill: '#d4e8d4' }).setScrollFactor(0).setDepth(99);
+    this.statusText = this.add.text(160, 6, '', { font: '12px monospace', fill: '#d4e8d4' }).setOrigin(0.5,0).setScrollFactor(0).setDepth(99);
+  }
+
+  createMobileButtons() {
     const btnAlpha = 0.6;
     const btnLayer = this.add.graphics().setScrollFactor(0).setDepth(100);
-    btnLayer.fillStyle(C.btnBg, btnAlpha);
+    btnLayer.fillStyle(PAL.btnBg, btnAlpha);
     btnLayer.fillRoundedRect(18, 202, 36, 24, 4);
     btnLayer.fillRoundedRect(68, 202, 36, 24, 4);
     btnLayer.fillRoundedRect(250, 200, 60, 30, 4);
-    btnLayer.lineStyle(1, C.btnBd, 1);
+    btnLayer.lineStyle(1, PAL.btnBd, 1);
     btnLayer.strokeRoundedRect(18, 202, 36, 24, 4);
     btnLayer.strokeRoundedRect(68, 202, 36, 24, 4);
     btnLayer.strokeRoundedRect(250, 200, 60, 30, 4);
 
-    // hit zones for buttons (invisible interactive rectangles)
     const hitL = this.add.zone(36, 214, 40, 28).setScrollFactor(0).setDepth(101).setInteractive();
     const hitR = this.add.zone(86, 214, 40, 28).setScrollFactor(0).setDepth(101).setInteractive();
     const hitJ = this.add.zone(280, 215, 64, 34).setScrollFactor(0).setDepth(101).setInteractive();
@@ -218,50 +211,31 @@ class GameScene extends Phaser.Scene {
     hitJ.on('pointerup', () => this.touchJump = false);
     hitJ.on('pointerout', () => this.touchJump = false);
 
-    // labels
     const txtStyle = { font: '14px monospace', fill: '#d4e8d4' };
     this.add.text(36, 214, '<', txtStyle).setOrigin(0.5).setScrollFactor(0).setDepth(102);
     this.add.text(86, 214, '>', txtStyle).setOrigin(0.5).setScrollFactor(0).setDepth(102);
     this.add.text(280, 215, 'JUMP', { font: '11px monospace', fill: '#d4e8d4', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(102);
 
-    // hide on non-touch
     if (!this.sys.game.device.input.touch) {
       btnLayer.setVisible(false);
       hitL.disableInteractive(); hitL.setVisible(false);
       hitR.disableInteractive(); hitR.setVisible(false);
       hitJ.disableInteractive(); hitJ.setVisible(false);
     }
-
-    // jump key
-    this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-
-    // HUD
-    this.coinCount = 0;
-    this.coinText = this.add.text(6, 6, '🍀 0', { font: '13px monospace', fill: '#d4e8d4' }).setScrollFactor(0).setDepth(99);
-    this.statusText = this.add.text(160, 6, '', { font: '12px monospace', fill: '#d4e8d4' }).setOrigin(0.5,0).setScrollFactor(0).setDepth(99);
-    this.gameWon = false;
   }
 
-  collectCoin(_, coin) {
-    coin.destroy();
-    this.coinCount++;
-    this.coinText.setText('🍀 ' + this.coinCount);
+  setupPlayer(x, y) {
+    this.player = this.physics.add.sprite(x, y, 'player');
+    this.player.setSize(10, 22);
+    this.player.setOffset(1, 2);
+    this.player.setBounce(0.1);
+    this.player.setCollideWorldBounds(true);
   }
 
-  win() {
-    if (this.gameWon) return;
-    this.gameWon = true;
-    this.statusText.setText('УРОВЕНЬ ПРОЙДЕН!');
-    this.statusText.setStyle({ font: '14px monospace', fill: '#8ac88a', fontStyle: 'bold' });
-    this.physics.pause();
-  }
-
-  update() {
-    if (this.gameWon) return;
-
-    const p = this.player;
+  setupControls() {
     const spd = 110;
     const jump = -210;
+    const p = this.player;
 
     let mx = 0;
     if (this.cursors.left.isDown || this.wasd.A.isDown || this.touchLeft) mx = -1;
@@ -274,21 +248,221 @@ class GameScene extends Phaser.Scene {
     if ((this.cursors.up.isDown || this.wasd.W.isDown || this.spaceKey.isDown || this.touchJump) && p.body.touching.down) {
       p.setVelocityY(jump);
     }
+  }
 
+  collectCoin(_, coin) {
+    coin.destroy();
+    this.coinCount++;
+    this.coinText.setText('🍀 ' + this.coinCount);
+  }
+
+  win(nextScene) {
+    if (this.gameWon) return;
+    this.gameWon = true;
+    this.statusText.setText('УРОВЕНЬ ПРОЙДЕН!');
+    this.statusText.setStyle({ font: '14px monospace', fill: '#8ac88a', fontStyle: 'bold' });
+    this.physics.pause();
+    this.time.delayedCall(1500, () => {
+      this.scene.start(nextScene);
+    });
+  }
+}
+
+// ============================================================
+//  Level 1: Jungle
+// ============================================================
+class JungleScene extends BaseScene {
+  constructor() { super('Jungle'); }
+
+  create() {
+    super.create();
+    this.cameras.main.setBackgroundColor(PAL.sky1);
+
+    // ---- parallax background ----
+    // far hills
+    const far = this.add.graphics().setScrollFactor(0.3).setDepth(0);
+    far.fillStyle(PAL.hill);
+    far.fillRect(0, 180, 320, 60);
+    far.fillStyle(PAL.sky2);
+    far.fillRect(0, 170, 320, 10);
+
+    // mid trees
+    const mid = this.add.graphics().setScrollFactor(0.6).setDepth(1);
+    for (let i = 0; i < 8; i++) {
+      const tx = i * 45 + 10;
+      mid.fillStyle(PAL.tree);
+      mid.fillRect(tx, 140, 8, 80);
+      mid.fillStyle(PAL.leaf);
+      mid.fillRect(tx-6, 130, 20, 16);
+      mid.fillRect(tx-4, 120, 16, 12);
+    }
+
+    // near foliage
+    const near = this.add.graphics().setScrollFactor(0.9).setDepth(2);
+    for (let i = 0; i < 12; i++) {
+      const tx = i * 30 + 5;
+      near.fillStyle(PAL.leafL);
+      near.fillRect(tx, 200, 12, 8);
+      near.fillRect(tx+4, 196, 8, 6);
+    }
+
+    // ---- platforms ----
+    this.platforms = this.physics.add.staticGroup();
+
+    // ground
+    this.platforms.add(this.add.tileSprite(0, 224, 320, 16, 'ground').setOrigin(0,0));
+
+    // jungle platforms (vertical progression)
+    const platData = [
+      // bottom area
+      [20, 200, 64], [100, 190, 80], [220, 200, 64],
+      // mid climb
+      [40, 160, 64], [140, 150, 80], [240, 160, 64],
+      // upper
+      [80, 120, 64], [180, 110, 80], [280, 120, 64],
+      // near top
+      [120, 80, 64], [220, 70, 80],
+      // top
+      [160, 40, 80],
+    ];
+    for (const [x,y,w] of platData) {
+      this.platforms.add(this.add.tileSprite(x, y, w, 16, 'platform').setOrigin(0,0));
+    }
+    this.platforms.refresh();
+
+    // vines (decoration)
+    const vines = this.add.graphics().setScrollFactor(0.8).setDepth(3);
+    for (let i = 0; i < 6; i++) {
+      const vx = i * 55 + 20;
+      vines.fillStyle(PAL.vine);
+      vines.fillRect(vx, 100, 4, 120);
+      vines.fillStyle(PAL.vineL);
+      vines.fillRect(vx+1, 100, 1, 120);
+    }
+
+    // player
+    this.setupPlayer(40, 200);
+    this.physics.add.collider(this.player, this.platforms);
+
+    // coins
+    this.coins = this.physics.add.staticGroup();
+    const coinPos = [
+      [40,180],[60,180],[160,130],[200,130],[100,100],[140,100],
+      [200,90],[240,90],[180,60],[200,60]
+    ];
+    for (const [x,y] of coinPos) {
+      this.coins.add(this.physics.add.staticSprite(x+4, y+4, 'coin'));
+    }
+    this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);
+
+    // goal at top
+    this.goal = this.physics.add.staticSprite(200, 20, 'goal');
+    this.physics.add.overlap(this.player, this.goal, () => this.win('TempleScene'), null, this);
+  }
+
+  update() {
+    if (this.gameWon) return;
+    this.setupControls();
     this.statusText.setText('');
   }
 }
 
+// ============================================================
+//  Level 2: Temple
+// ============================================================
+class TempleScene extends BaseScene {
+  constructor() { super('Temple'); }
+
+  create() {
+    super.create();
+    this.cameras.main.setBackgroundColor(0x2a2a3a);
+
+    // stone walls background
+    const bg = this.add.graphics().setDepth(0);
+    bg.fillStyle(0x3a3a4a);
+    bg.fillRect(0, 0, 320, 240);
+    // brick pattern
+    bg.fillStyle(0x4a4a5a);
+    for (let y = 0; y < 240; y += 16) {
+      const offset = (y / 16) % 2 === 0 ? 0 : 8;
+      for (let x = -16 + offset; x < 320; x += 32) {
+        bg.fillRect(x, y, 30, 14);
+      }
+    }
+
+    // torches
+    const torchPositions = [[20, 180], [300, 180], [20, 100], [300, 100]];
+    for (const [tx, ty] of torchPositions) {
+      const torch = this.add.image(tx, ty, 'torch').setDepth(5);
+      this.tweens.add({
+        targets: torch,
+        alpha: { from: 0.6, to: 1 },
+        duration: 500,
+        yoyo: true,
+        repeat: -1,
+      });
+    }
+
+    // platforms (stone)
+    this.platforms = this.physics.add.staticGroup();
+    this.platforms.add(this.add.tileSprite(0, 224, 320, 16, 'stone').setOrigin(0,0));
+
+    const platData = [
+      [20, 200, 64], [120, 190, 80], [240, 200, 64],
+      [60, 160, 64], [180, 150, 80],
+      [100, 120, 64], [220, 110, 80],
+      [40, 80, 64], [160, 70, 80],
+      [120, 40, 80],
+    ];
+    for (const [x,y,w] of platData) {
+      this.platforms.add(this.add.tileSprite(x, y, w, 16, 'stone').setOrigin(0,0));
+    }
+    this.platforms.refresh();
+
+    // player
+    this.setupPlayer(40, 200);
+    this.physics.add.collider(this.player, this.platforms);
+
+    // coins
+    this.coins = this.physics.add.staticGroup();
+    const coinPos = [
+      [40,180],[160,130],[100,100],[200,90],[80,60],[160,50]
+    ];
+    for (const [x,y] of coinPos) {
+      this.coins.add(this.physics.add.staticSprite(x+4, y+4, 'coin'));
+    }
+    this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);
+
+    // goal
+    this.goal = this.physics.add.staticSprite(160, 20, 'goal');
+    this.physics.add.overlap(this.player, this.goal, () => {
+      this.statusText.setText('🎉 ВСЁ ПРОЙДЕНО!');
+      this.statusText.setStyle({ font: '14px monospace', fill: '#e8c860', fontStyle: 'bold' });
+      this.gameWon = true;
+      this.physics.pause();
+    }, null, this);
+  }
+
+  update() {
+    if (this.gameWon) return;
+    this.setupControls();
+    this.statusText.setText('');
+  }
+}
+
+// ============================================================
+//  Config
+// ============================================================
 const config = {
   type: Phaser.AUTO,
-  width: 320,
-  height: 240,
+  width: GW,
+  height: GH,
   parent: 'game-container',
   pixelArt: true,
   input: { activePointers: 3 },
   physics: { default: 'arcade', arcade: { gravity: { y: 480 }, debug: false } },
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-  scene: GameScene,
+  scene: [JungleScene, TempleScene],
 };
 
 new Phaser.Game(config);
