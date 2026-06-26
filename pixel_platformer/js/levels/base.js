@@ -27,6 +27,7 @@ export class BaseLevel extends Phaser.Scene {
 
     this.coinText = this.add.text(6, 6, '🍀 ' + this.coinCount, { font: '13px monospace', fill: '#d4e8d4' }).setScrollFactor(0).setDepth(99);
     this.statusText = this.add.text(160, 6, '', { font: '12px monospace', fill: '#d4e8d4' }).setOrigin(0.5,0).setScrollFactor(0).setDepth(99);
+    this.add.text(310, 6, 'v1.0.111', { font: '10px monospace', fill: '#6a9a6a' }).setOrigin(1,0).setScrollFactor(0).setDepth(99);
   }
 
   createMobileButtons() {
