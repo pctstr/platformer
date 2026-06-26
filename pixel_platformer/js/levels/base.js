@@ -75,7 +75,7 @@ export class BaseLevel extends Phaser.Scene {
     this.player.setSize(10, 22);
     this.player.setOffset(1, 2);
     this.player.setBounce(0.1);
-    this.player.setCollideWorldBounds(true);
+    this.player.setCollideWorldBounds(false);
   }
 
   setupControls() {
@@ -104,15 +104,19 @@ export class BaseLevel extends Phaser.Scene {
 
   checkEdgeTransition(nextScene, prevScene) {
     const p = this.player;
+    // fell off bottom -> respawn
+    if (p.y > 260) {
+      p.setPosition(40, 200);
+      p.setVelocity(0, 0);
+      return;
+    }
     // right edge -> next level
-    if (p.x > 320) {
+    if (p.x > 330 && nextScene) {
       this.scene.start(nextScene, { coinCount: this.coinCount, from: this.scene.key });
     }
     // left edge -> previous level
-    if (p.x < -12) {
-      if (prevScene) {
-        this.scene.start(prevScene, { coinCount: this.coinCount, from: this.scene.key });
-      }
+    if (p.x < -20 && prevScene) {
+      this.scene.start(prevScene, { coinCount: this.coinCount, from: this.scene.key });
     }
   }
 
