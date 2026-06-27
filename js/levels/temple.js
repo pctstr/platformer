@@ -51,17 +51,16 @@ export class TempleLevel extends BaseLevel {
     for (const [x,y,w] of platData) {
       this.platforms.add(this.add.tileSprite(x, y, w, 16, 'stone').setOrigin(0,0));
     }
+
+    // right wall for Temple (no next level)
+    this.platforms.add(this.add.tileSprite(322, 120, 6, 240, 'stone').setOrigin(0.5, 0.5));
     this.platforms.refresh();
 
     // ---- player (MUST be created before goal overlap) ----
-    // expand world bounds so the player can walk left back to Jungle (x < -25)
-    this.physics.world.setBounds(-25, 0, 345, 240);
+    // expand world bounds so the player can walk left back to Jungle (x < -20)
+    this.physics.world.setBounds(-25, 0, 325, 240);
     this.setupPlayer(this.startX, this.startY);
     this.physics.add.collider(this.player, this.platforms);
-
-    // ---- right wall for Temple (no next level) ----
-    this.platforms.add(this.add.tileSprite(320, 120, 20, 240, 'stone').setOrigin(0.5, 0.5));
-    this.platforms.refresh();
 
     // ---- goal (finish flag) on top-right platform ----
     this.goal = this.physics.add.staticSprite(290, 38, 'goal');
@@ -70,9 +69,9 @@ export class TempleLevel extends BaseLevel {
     // ---- coins ----
     this.coins = this.physics.add.staticGroup();
     const coinPos = [
-      [44,184],[160,174],           // над нижними (y=200/190)
+      [44,174],[160,174],           // над нижними (y=200/190)
       [90,144],[220,134],           // над средними (y=160/150)
-      [130,104],[260,94]            // над верхними (y=120/110)
+      [140,104],[270,94]            // над верхними (y=120/110)
     ];
     this.createCoins(this.coins, coinPos);
     this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);
