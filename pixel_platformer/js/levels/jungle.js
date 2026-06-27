@@ -64,7 +64,8 @@ export class JungleLevel extends BaseLevel {
     }
 
     // expand world bounds so the player can walk off the right edge (triggers checkEdgeTransition at x>330)
-    this.physics.world.setBounds(-20, 0, 370, 240);
+    // left wall at x=0 — player cannot go back (first level)
+    this.physics.world.setBounds(0, 0, 350, 240);
     this.setupPlayer(40, this.startY);
     this.physics.add.collider(this.player, this.platforms);
 

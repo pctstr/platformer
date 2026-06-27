@@ -3,7 +3,7 @@
 // ============================================================
 import { registerTextures } from '../textures.js';
 
-const VERSION = '1.0.113';
+const VERSION = '1.0.114';
 
 export class BaseLevel extends Phaser.Scene {
   // Per-session registry of collected coin IDs (persists across scene transitions)
