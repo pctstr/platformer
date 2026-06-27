@@ -1,5 +1,5 @@
 // ============================================================
-//  LEVEL 2: Temple
+//  LEVEL 2: Temple (last level — has a finish zone)
 // ============================================================
 import { BaseLevel } from './base.js';
 
@@ -35,6 +35,7 @@ export class TempleLevel extends BaseLevel {
       });
     }
 
+    // ---- platforms ----
     this.platforms = this.physics.add.staticGroup();
     this.platforms.add(this.add.tileSprite(0, 224, 320, 16, 'stone').setOrigin(0,0));
 
@@ -44,22 +45,28 @@ export class TempleLevel extends BaseLevel {
       [100, 120, 64], [220, 110, 80],
       [40, 80, 64], [160, 70, 80],
       [120, 40, 80],
+      // goal platform at top-right
+      [260, 50, 60],
     ];
     for (const [x,y,w] of platData) {
       this.platforms.add(this.add.tileSprite(x, y, w, 16, 'stone').setOrigin(0,0));
     }
     this.platforms.refresh();
 
+    // ---- player (MUST be created before goal overlap) ----
     this.setupPlayer(40, this.startY);
     this.physics.add.collider(this.player, this.platforms);
 
+    // ---- goal (finish flag) on top-right platform ----
+    this.goal = this.physics.add.staticSprite(290, 38, 'goal');
+    this.physics.add.overlap(this.player, this.goal, () => this.win(null), null, this);
+
+    // ---- coins ----
     this.coins = this.physics.add.staticGroup();
     const coinPos = [
-      [40,170],[160,110],[100,90],[200,80],[80,50],[160,40]
+      [44,174],[164,114],[104,94],[204,84],[84,54],[164,44]
     ];
-    for (const [x,y] of coinPos) {
-      this.coins.add(this.physics.add.staticSprite(x+4, y+4, 'coin'));
-    }
+    this.createCoins(this.coins, coinPos);
     this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);
 
   }
@@ -67,6 +74,7 @@ export class TempleLevel extends BaseLevel {
   update() {
     if (this.gameWon) return;
     this.setupControls();
+    this.checkFall();
     this.checkEdgeTransition(null, 'Jungle');
     this.statusText.setText('');
   }

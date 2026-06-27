@@ -68,12 +68,10 @@ export class JungleLevel extends BaseLevel {
 
     this.coins = this.physics.add.staticGroup();
     const coinPos = [
-      [40,170],[60,170],[160,120],[200,120],[100,90],[140,90],
-      [200,80],[240,80],[180,50],[200,50]
+      [44,174],[60,174],[160,124],[200,124],[100,94],[140,94],
+      [200,84],[240,84],[180,54],[200,54]
     ];
-    for (const [x,y] of coinPos) {
-      this.coins.add(this.physics.add.staticSprite(x+4, y+4, 'coin'));
-    }
+    this.createCoins(this.coins, coinPos);
     this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);
 
   }
@@ -81,6 +79,7 @@ export class JungleLevel extends BaseLevel {
   update() {
     if (this.gameWon) return;
     this.setupControls();
+    this.checkFall();
     this.checkEdgeTransition('Temple', null);
     this.statusText.setText('');
   }

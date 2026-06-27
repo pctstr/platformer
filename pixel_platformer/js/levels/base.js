@@ -3,7 +3,12 @@
 // ============================================================
 import { registerTextures } from '../textures.js';
 
+const VERSION = '1.0.113';
+
 export class BaseLevel extends Phaser.Scene {
+  // Per-session registry of collected coin IDs (persists across scene transitions)
+  static collectedCoins = new Set();
+
   constructor(key) {
     super(key);
   }
@@ -13,6 +18,7 @@ export class BaseLevel extends Phaser.Scene {
     this.fromLevel = data.from || null;
     this.startY = data.startY || 200;
     this.gameWon = false;
+    // reset touch flags on every scene entry
     this.touchLeft = false;
     this.touchRight = false;
     this.touchJump = false;
@@ -29,7 +35,7 @@ export class BaseLevel extends Phaser.Scene {
 
     this.coinText = this.add.text(6, 6, '🍀 ' + this.coinCount, { font: '13px monospace', fill: '#d4e8d4' }).setScrollFactor(0).setDepth(99);
     this.statusText = this.add.text(160, 6, '', { font: '12px monospace', fill: '#d4e8d4' }).setOrigin(0.5,0).setScrollFactor(0).setDepth(99);
-    this.add.text(310, 6, 'v1.0.113', { font: '10px monospace', fill: '#6a9a6a' }).setOrigin(1,0).setScrollFactor(0).setDepth(99);
+    this.add.text(310, 6, 'v' + VERSION, { font: '10px monospace', fill: '#6a9a6a' }).setOrigin(1,0).setScrollFactor(0).setDepth(99);
   }
 
   createMobileButtons() {
@@ -71,6 +77,17 @@ export class BaseLevel extends Phaser.Scene {
     }
   }
 
+  /** Create coin sprites from position array, skipping already-collected ones */
+  createCoins(group, positions) {
+    const sceneKey = this.scene.key;
+    for (const [x, y] of positions) {
+      const coinKey = `${sceneKey}-${x}-${y}`;
+      if (BaseLevel.collectedCoins.has(coinKey)) continue;
+      const coin = group.create(x, y, 'coin');
+      coin.setData('coinKey', coinKey);
+    }
+  }
+
   setupPlayer(x, y) {
     this.player = this.physics.add.sprite(x, y, 'player');
     this.player.setSize(10, 22);
@@ -98,9 +115,18 @@ export class BaseLevel extends Phaser.Scene {
   }
 
   collectCoin(_, coin) {
+    const key = coin.getData('coinKey') || `${this.scene.key}-${Math.round(coin.x)}-${Math.round(coin.y)}`;
+    BaseLevel.collectedCoins.add(key);
     coin.destroy();
     this.coinCount++;
     this.coinText.setText('🍀 ' + this.coinCount);
+  }
+
+  checkFall() {
+    if (this.player.y > 280) {
+      this.player.setPosition(40, 200);
+      this.player.setVelocity(0, 0);
+    }
   }
 
   checkEdgeTransition(nextScene, prevScene) {
@@ -121,8 +147,10 @@ export class BaseLevel extends Phaser.Scene {
     this.statusText.setText('УРОВЕНЬ ПРОЙДЕН!');
     this.statusText.setStyle({ font: '14px monospace', fill: '#8ac88a', fontStyle: 'bold' });
     this.physics.pause();
-    this.time.delayedCall(1500, () => {
-      this.scene.start(nextScene);
-    });
+    if (nextScene) {
+      this.time.delayedCall(1500, () => {
+        this.scene.start(nextScene, { coinCount: this.coinCount });
+      });
+    }
   }
 }
