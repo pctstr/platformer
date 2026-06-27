@@ -4,7 +4,7 @@
 import { JungleLevel } from './levels/jungle.js';
 import { TempleLevel } from './levels/temple.js';
 
-export const VERSION = '1.0.116';
+export const VERSION = '1.0.117';
 
 const GW = 320, GH = 240;
 

@@ -3,7 +3,7 @@
 // ============================================================
 import { registerTextures } from '../textures.js';
 
-const VERSION = '1.0.116';
+const VERSION = '1.0.117';
 
 export class BaseLevel extends Phaser.Scene {
   // Per-session registry of collected coin IDs (persists across scene transitions)
@@ -16,8 +16,10 @@ export class BaseLevel extends Phaser.Scene {
   init(data) {
     this.coinCount = data.coinCount || 0;
     this.fromLevel = data.from || null;
-    this.startX = data.startX || 40;
-    this.startY = data.startY || 200;
+    this.startX = data.startX ?? 40;
+    this.startY = data.startY ?? 200;
+    this.velX = data.velX ?? 0;
+    this.velY = data.velY ?? 0;
     this.gameWon = false;
     // reset touch flags on every scene entry
     this.touchLeft = false;
@@ -95,6 +97,9 @@ export class BaseLevel extends Phaser.Scene {
     this.player.setOffset(1, 2);
     this.player.setBounce(0.1);
     this.player.setCollideWorldBounds(true);
+    if (this.velX || this.velY) {
+      this.player.setVelocity(this.velX, this.velY);
+    }
   }
 
   setupControls() {
@@ -134,11 +139,11 @@ export class BaseLevel extends Phaser.Scene {
     const p = this.player;
     // right edge -> next level, enter from LEFT side
     if (p.x > 330 && nextScene) {
-      this.scene.start(nextScene, { coinCount: this.coinCount, from: this.scene.key, startX: 40, startY: p.y });
+      this.scene.start(nextScene, { coinCount: this.coinCount, from: this.scene.key, startX: -5, startY: p.y, velX: p.body.velocity.x, velY: p.body.velocity.y });
     }
     // left edge -> previous level, enter from RIGHT side
     if (p.x < -20 && prevScene) {
-      this.scene.start(prevScene, { coinCount: this.coinCount, from: this.scene.key, startX: 310, startY: p.y });
+      this.scene.start(prevScene, { coinCount: this.coinCount, from: this.scene.key, startX: 325, startY: p.y, velX: p.body.velocity.x, velY: p.body.velocity.y });
     }
   }
 
