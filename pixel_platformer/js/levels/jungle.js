@@ -39,7 +39,7 @@ export class JungleLevel extends BaseLevel {
 
     // platforms
     this.platforms = this.physics.add.staticGroup();
-    this.platforms.add(this.add.tileSprite(0, 224, 320, 16, 'ground').setOrigin(0,0));
+    this.platforms.add(this.add.tileSprite(0, 224, 350, 16, 'ground').setOrigin(0,0));
 
     const platData = [
       [20, 200, 64], [100, 190, 80], [220, 200, 64],
@@ -63,6 +63,8 @@ export class JungleLevel extends BaseLevel {
       vines.fillRect(vx+1, 100, 1, 120);
     }
 
+    // expand world bounds so the player can walk off the right edge (triggers checkEdgeTransition at x>330)
+    this.physics.world.setBounds(-20, 0, 370, 240);
     this.setupPlayer(40, this.startY);
     this.physics.add.collider(this.player, this.platforms);
 

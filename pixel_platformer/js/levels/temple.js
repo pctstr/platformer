@@ -37,7 +37,7 @@ export class TempleLevel extends BaseLevel {
 
     // ---- platforms ----
     this.platforms = this.physics.add.staticGroup();
-    this.platforms.add(this.add.tileSprite(0, 224, 320, 16, 'stone').setOrigin(0,0));
+    this.platforms.add(this.add.tileSprite(-20, 224, 360, 16, 'stone').setOrigin(0,0));
 
     const platData = [
       [20, 200, 64], [120, 190, 80], [240, 200, 64],
@@ -54,6 +54,8 @@ export class TempleLevel extends BaseLevel {
     this.platforms.refresh();
 
     // ---- player (MUST be created before goal overlap) ----
+    // expand world bounds so the player can walk left back to Jungle (x < -20)
+    this.physics.world.setBounds(-20, 0, 360, 240);
     this.setupPlayer(40, this.startY);
     this.physics.add.collider(this.player, this.platforms);
 
