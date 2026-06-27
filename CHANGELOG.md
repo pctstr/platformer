@@ -1,5 +1,16 @@
 # Changelog
 
+
+## [1.0.115] — 2026-06-27
+
+### Изменено
+- **Структура проекта:** игра перенесена из `pixel_platformer/` (затем `index/`) в корень.
+- `index.html` теперь в корне — GitHub Pages запускается с `/`.
+- Пути `css/style.css` и `js/main.js` — относительные, не сломались.
+
+---
+
+
 All notable changes to this project are tracked here.
 
 ---
