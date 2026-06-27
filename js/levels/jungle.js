@@ -66,13 +66,15 @@ export class JungleLevel extends BaseLevel {
     // expand world bounds so the player can walk off the right edge (triggers checkEdgeTransition at x>330)
     // left wall at x=0 — player cannot go back (first level)
     this.physics.world.setBounds(0, 0, 350, 240);
-    this.setupPlayer(40, this.startY);
+    this.setupPlayer(this.startX, this.startY);
     this.physics.add.collider(this.player, this.platforms);
 
     this.coins = this.physics.add.staticGroup();
     const coinPos = [
-      [44,174],[60,174],[160,124],[200,124],[100,94],[140,94],
-      [200,84],[240,84],[180,54],[200,54]
+      [50,184],[140,174],[250,184],   // над нижними платформами (y=200/190)
+      [44,144],[180,134],[260,144],   // над средними (y=160/150)
+      [100,104],[220,94],             // над верхними (y=120/110)
+      [140,64],[240,54]               // над самыми верхними (y=80/70)
     ];
     this.createCoins(this.coins, coinPos);
     this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);

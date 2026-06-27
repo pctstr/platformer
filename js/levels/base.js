@@ -3,7 +3,7 @@
 // ============================================================
 import { registerTextures } from '../textures.js';
 
-const VERSION = '1.0.114';
+const VERSION = '1.0.116';
 
 export class BaseLevel extends Phaser.Scene {
   // Per-session registry of collected coin IDs (persists across scene transitions)
@@ -16,6 +16,7 @@ export class BaseLevel extends Phaser.Scene {
   init(data) {
     this.coinCount = data.coinCount || 0;
     this.fromLevel = data.from || null;
+    this.startX = data.startX || 40;
     this.startY = data.startY || 200;
     this.gameWon = false;
     // reset touch flags on every scene entry
@@ -131,13 +132,13 @@ export class BaseLevel extends Phaser.Scene {
 
   checkEdgeTransition(nextScene, prevScene) {
     const p = this.player;
-    // right edge -> next level (preserve Y)
+    // right edge -> next level, enter from LEFT side
     if (p.x > 330 && nextScene) {
-      this.scene.start(nextScene, { coinCount: this.coinCount, from: this.scene.key, startY: p.y });
+      this.scene.start(nextScene, { coinCount: this.coinCount, from: this.scene.key, startX: 40, startY: p.y });
     }
-    // left edge -> previous level (preserve Y)
+    // left edge -> previous level, enter from RIGHT side
     if (p.x < -20 && prevScene) {
-      this.scene.start(prevScene, { coinCount: this.coinCount, from: this.scene.key, startY: p.y });
+      this.scene.start(prevScene, { coinCount: this.coinCount, from: this.scene.key, startX: 310, startY: p.y });
     }
   }
 

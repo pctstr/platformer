@@ -56,7 +56,7 @@ export class TempleLevel extends BaseLevel {
     // ---- player (MUST be created before goal overlap) ----
     // expand world bounds so the player can walk left back to Jungle (x < -20)
     this.physics.world.setBounds(-20, 0, 360, 240);
-    this.setupPlayer(40, this.startY);
+    this.setupPlayer(this.startX, this.startY);
     this.physics.add.collider(this.player, this.platforms);
 
     // ---- goal (finish flag) on top-right platform ----
@@ -66,7 +66,9 @@ export class TempleLevel extends BaseLevel {
     // ---- coins ----
     this.coins = this.physics.add.staticGroup();
     const coinPos = [
-      [44,174],[164,114],[104,94],[204,84],[84,54],[164,44]
+      [44,184],[160,174],           // над нижними (y=200/190)
+      [90,144],[220,134],           // над средними (y=160/150)
+      [130,104],[260,94]            // над верхними (y=120/110)
     ];
     this.createCoins(this.coins, coinPos);
     this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);
